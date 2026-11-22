@@ -1,0 +1,69 @@
+---
+import BaseLayout from '../layouts/BaseLayout.astro';
+import ArticleCard from '../components/ArticleCard.astro';
+import TagList from '../components/TagList.astro';
+import { getEntry } from 'astro:content';
+import { TOPICS } from '../data/taxonomy';
+import { formatDate, getArticles, readingTime, url, SITE } from '../lib/utils';
+
+const articles = await getArticles();
+const featured = articles.find((a) => a.data.featured) ?? articles[0];
+const latest = articles.filter((a) => a.id !== featured?.id).slice(0, 6);
+const featuredAuthor = featured ? await getEntry(featured.data.author) : undefined;
+const countByTopic = Object.fromEntries(TOPICS.map((t) => [t.slug, articles.filter((a) => a.data.topics.includes(t.slug)).length]));
+---
+<BaseLayout>
+  <div class="wrap">
+    <section class="hero">
+      <p class="eyebrow">Independent · Youth-led · Central Asia</p>
+      <h1>Policy analysis from the heart of Eurasia</h1>
+      <p>{SITE.tagline} Written by a new generation of researchers from Kazakhstan, Kyrgyzstan, Tajikistan, Turkmenistan and Uzbekistan.</p>
+    </section>
+
+    {featured && (
+      <section class="featured" aria-labelledby="featured-title">
+        <div>
+          <p class="eyebrow">Featured analysis</p>
+          <h2 id="featured-title"><a href={url(`/articles/${featured.id}`)}>{featured.data.title}</a></h2>
+        </div>
+        <div style="display:grid;gap:12px">
+          <p class="dek">{featured.data.dek}</p>
+          <div class="meta">
+            {featuredAuthor && <a href={url(`/authors/${featuredAuthor.id}`)}>{featuredAuthor.data.name}</a>} ·
+            {formatDate(featured.data.date)} · {readingTime(featured.body)} min read
+          </div>
+          <TagList topics={featured.data.topics} countries={featured.data.countries} />
+        </div>
+      </section>
+    )}
+
+    <section class="section" aria-labelledby="latest">
+      <div class="section-head">
+        <h2 id="latest">Latest</h2>
+        <a href={url('/articles')}>All articles →</a>
+      </div>
+      <div class="grid">{latest.map((a) => <ArticleCard article={a} />)}</div>
+    </section>
+
+    <section class="section" aria-labelledby="topics">
+      <div class="section-head"><h2 id="topics">Explore by topic</h2></div>
+      <div class="topic-grid">
+        {TOPICS.map((t) => (
+          <a class="topic-tile" href={url(`/topics/${t.slug}`)}>
+            <strong>{t.label}</strong>
+            <span>{t.blurb}</span>
+            <em>{countByTopic[t.slug]} {countByTopic[t.slug] === 1 ? 'article' : 'articles'} →</em>
+          </a>
+        ))}
+      </div>
+    </section>
+
+    <section class="callout">
+      <div>
+        <h2>Have an argument about Central Asia?</h2>
+        <p>We publish students and early-career analysts from across the region. Send us a pitch — we edit closely and reply to every one.</p>
+      </div>
+      <a class="button" href={url('/contribute')}>Pitch an article</a>
+    </section>
+  </div>
+</BaseLayout>

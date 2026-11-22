@@ -1,0 +1,27 @@
+---
+import BaseLayout from '../../layouts/BaseLayout.astro';
+import ArticleCard from '../../components/ArticleCard.astro';
+import { COUNTRIES } from '../../data/taxonomy';
+import { getArticles, url } from '../../lib/utils';
+
+export function getStaticPaths() {
+  return COUNTRIES.map((country) => ({ params: { country: country.slug }, props: { country } }));
+}
+const { country } = Astro.props;
+const articles = (await getArticles()).filter((a) => a.data.countries.includes(country.slug));
+const heading = country.slug === 'regional' ? 'Regional analysis' : country.label;
+---
+<BaseLayout title={heading} description={`Analysis of ${country.label} from Tian Shan Policy Review.`}>
+  <div class="wrap">
+    <header class="page-head">
+      <p class="eyebrow">Country</p>
+      <h1>{heading}</h1>
+      <nav class="tags" aria-label="Other countries" style="margin-top:16px">
+        {COUNTRIES.filter((c) => c.slug !== country.slug).map((c) => <a class="tag country" href={url(`/countries/${c.slug}`)}>{c.label}</a>)}
+      </nav>
+    </header>
+    {articles.length
+      ? <div class="grid">{articles.map((a) => <ArticleCard article={a} />)}</div>
+      : <p class="empty">No articles on {country.label} yet. <a href={url('/contribute')}>Pitch one?</a></p>}
+  </div>
+</BaseLayout>

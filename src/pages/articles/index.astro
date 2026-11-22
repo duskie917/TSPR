@@ -1,0 +1,64 @@
+---
+import BaseLayout from '../../layouts/BaseLayout.astro';
+import ArticleCard from '../../components/ArticleCard.astro';
+import { getEntry } from 'astro:content';
+import { COUNTRIES, TOPICS } from '../../data/taxonomy';
+import { getArticles, url } from '../../lib/utils';
+
+const articles = await getArticles();
+const items = await Promise.all(
+  articles.map(async (a) => {
+    const author = await getEntry(a.data.author);
+    return {
+      article: a,
+      text: [a.data.title, a.data.dek, author?.data.name ?? ''].join(' ').toLowerCase(),
+    };
+  }),
+);
+---
+<BaseLayout title="Articles" description="Search and filter all Tian Shan Policy Review analysis by topic, country or keyword.">
+  <div class="wrap">
+    <header class="page-head">
+      <p class="eyebrow">Archive</p>
+      <h1>All articles</h1>
+      <p>Search our analysis by keyword, or narrow it down by topic and country.</p>
+    </header>
+
+    <form class="filters" id="filters" role="search" action={url('/articles')} method="get">
+      <div class="field">
+        <label for="q">Keyword</label>
+        <input type="search" id="q" name="q" placeholder="e.g. Rogun, uranium, Middle Corridor" autocomplete="off" />
+      </div>
+      <div class="field">
+        <label for="topic">Topic</label>
+        <select id="topic" name="topic">
+          <option value="">All topics</option>
+          {TOPICS.map((t) => <option value={t.slug}>{t.label}</option>)}
+        </select>
+      </div>
+      <div class="field">
+        <label for="country">Country</label>
+        <select id="country" name="country">
+          <option value="">All countries</option>
+          {COUNTRIES.map((c) => <option value={c.slug}>{c.label}</option>)}
+        </select>
+      </div>
+      <button type="reset" class="link-button" id="reset">Clear filters</button>
+    </form>
+
+    <p class="results-count" id="count" aria-live="polite">{articles.length} articles</p>
+    <div class="grid" id="results">
+      {items.map(({ article, text }) => (
+        <div data-article data-id={article.id} data-topics={article.data.topics.join(' ')} data-countries={article.data.countries.join(' ')} data-text={text}>
+          <ArticleCard article={article} headingLevel="h2" />
+        </div>
+      ))}
+    </div>
+    <p class="empty" id="empty" hidden>No articles match these filters. <button type="button" class="link-button" id="reset2">Clear filters</button></p>
+  </div>
+</BaseLayout>
+
+<script>
+  import { initArticleFilters } from '../../scripts/search';
+  initArticleFilters();
+</script>

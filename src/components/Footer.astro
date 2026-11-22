@@ -1,0 +1,26 @@
+---
+import { TOPICS } from '../data/taxonomy';
+import { url, SITE } from '../lib/utils';
+---
+<footer class="site-footer">
+  <div class="wrap">
+    <div>
+      <h2>{SITE.name}</h2>
+      <p>{SITE.tagline} Views expressed are the authors’ own.</p>
+      <p>© {new Date().getFullYear()} {SITE.name} · <a href={`mailto:${SITE.email}`}>{SITE.email}</a></p>
+    </div>
+    <div>
+      <h2>Topics</h2>
+      <ul>{TOPICS.map((t) => <li><a href={url(`/topics/${t.slug}`)}>{t.label}</a></li>)}</ul>
+    </div>
+    <div>
+      <h2>Publication</h2>
+      <ul>
+        <li><a href={url('/about')}>About & editorial standards</a></li>
+        <li><a href={url('/authors')}>Contributors</a></li>
+        <li><a href={url('/contribute')}>Pitch an article</a></li>
+        <li><a href={url('/rss.xml')}>RSS feed</a></li>
+      </ul>
+    </div>
+  </div>
+</footer>

@@ -1,0 +1,44 @@
+---
+import BaseLayout from '../../layouts/BaseLayout.astro';
+import ArticleCard from '../../components/ArticleCard.astro';
+import Avatar from '../../components/Avatar.astro';
+import { getCollection } from 'astro:content';
+import { getArticles } from '../../lib/utils';
+
+export async function getStaticPaths() {
+  const authors = await getCollection('authors');
+  return authors.map((author) => ({ params: { id: author.id }, props: { author } }));
+}
+const { author } = Astro.props;
+const { name, role, location, bio, affiliation, links } = author.data;
+const articles = (await getArticles()).filter((a) => a.data.author.id === author.id);
+const linkList = [
+  links.website && { href: links.website, label: 'Website' },
+  links.linkedin && { href: links.linkedin, label: 'LinkedIn' },
+  links.x && { href: links.x, label: 'X / Twitter' },
+].filter(Boolean) as { href: string; label: string }[];
+---
+<BaseLayout title={name} description={bio}>
+  <div class="wrap">
+    <header class="page-head">
+      <div class="profile">
+        <Avatar name={name} size="lg" />
+        <div>
+          <p class="eyebrow">{role}</p>
+          <h1 style="margin-bottom:4px">{name}</h1>
+          <p>{location}{affiliation && ` · ${affiliation}`}</p>
+        </div>
+      </div>
+      <p style="margin-top:20px">{bio}</p>
+      {linkList.length > 0 && (
+        <ul class="links">{linkList.map((l) => <li><a href={l.href} rel="noopener me" target="_blank">{l.label}</a></li>)}</ul>
+      )}
+    </header>
+    <section aria-labelledby="by">
+      <div class="section-head"><h2 id="by">Articles by {name.split(' ')[0]}</h2></div>
+      {articles.length
+        ? <div class="grid">{articles.map((a) => <ArticleCard article={a} />)}</div>
+        : <p class="empty">No published articles yet.</p>}
+    </section>
+  </div>
+</BaseLayout>

@@ -1,0 +1,105 @@
+---
+import BaseLayout from '../layouts/BaseLayout.astro';
+import { COUNTRIES, TOPICS } from '../data/taxonomy';
+import { SITE } from '../lib/utils';
+const endpoint = import.meta.env.PUBLIC_PITCH_FORM_ENDPOINT || '';
+---
+<BaseLayout title="Write for us" description="Pitch an article to Tian Shan Policy Review. We publish students and early-career analysts from across Central Asia.">
+  <div class="wrap">
+    <header class="page-head">
+      <p class="eyebrow">Contribute</p>
+      <h1>Pitch an article</h1>
+      <p>We publish analysis by students, researchers and young professionals from Central Asia and its diaspora. No prior publications needed — just a clear argument.</p>
+    </header>
+    <div class="two-col">
+      <div class="content">
+        <h2>What we look for</h2>
+        <ul>
+          <li><strong>An argument, not a summary.</strong> Tell us what you think and why it matters now.</li>
+          <li><strong>Regional insight.</strong> Local sources, data and languages are our edge.</li>
+          <li><strong>Analysis pieces</strong> of 1,200–2,500 words; <strong>commentary</strong> of 800–1,200 words.</li>
+          <li>Topics: geopolitics, energy security, foreign policy and the economy of Central Asia.</li>
+        </ul>
+        <h2>How it works</h2>
+        <ol>
+          <li>Send a pitch of up to 300 words using this form.</li>
+          <li>An editor replies within 10 working days.</li>
+          <li>If accepted, you draft; we edit together and fact-check before publishing.</li>
+        </ol>
+        <p>Questions? Email <a href={`mailto:${SITE.email}`}>{SITE.email}</a>.</p>
+      </div>
+
+      <form class="form" id="pitch-form" method="post" action={endpoint || `mailto:${SITE.email}`} data-endpoint={endpoint} data-email={SITE.email} novalidate>
+        <div class="row">
+          <div class="field">
+            <label for="name">Full name</label>
+            <input type="text" id="name" name="name" required autocomplete="name" aria-describedby="name-err" />
+            <p class="error" id="name-err" aria-live="polite"></p>
+          </div>
+          <div class="field">
+            <label for="email">Email</label>
+            <input type="email" id="email" name="email" required autocomplete="email" aria-describedby="email-err" />
+            <p class="error" id="email-err" aria-live="polite"></p>
+          </div>
+        </div>
+        <div class="row">
+          <div class="field">
+            <label for="affiliation">University / affiliation <span class="hint">(optional)</span></label>
+            <input type="text" id="affiliation" name="affiliation" autocomplete="organization" />
+          </div>
+          <div class="field">
+            <label for="based">Based in</label>
+            <input type="text" id="based" name="based" placeholder="City, country" />
+          </div>
+        </div>
+        <div class="row">
+          <div class="field">
+            <label for="pitch-topic">Topic</label>
+            <select id="pitch-topic" name="topic" required aria-describedby="topic-err">
+              <option value="">Choose a topic</option>
+              {TOPICS.map((t) => <option value={t.label}>{t.label}</option>)}
+            </select>
+            <p class="error" id="topic-err" aria-live="polite"></p>
+          </div>
+          <div class="field">
+            <label for="pitch-country">Country focus</label>
+            <select id="pitch-country" name="country">
+              <option value="">Any / multiple</option>
+              {COUNTRIES.map((c) => <option value={c.label}>{c.label}</option>)}
+            </select>
+          </div>
+        </div>
+        <div class="field">
+          <label for="title">Working title</label>
+          <input type="text" id="title" name="title" required maxlength="160" aria-describedby="title-err" />
+          <p class="error" id="title-err" aria-live="polite"></p>
+        </div>
+        <div class="field">
+          <label for="pitch">Your pitch</label>
+          <p class="hint" id="pitch-hint">What is your argument, why now, and what sources will you use? Up to 300 words.</p>
+          <textarea id="pitch" name="pitch" required aria-describedby="pitch-hint pitch-err pitch-count"></textarea>
+          <p class="hint" id="pitch-count" aria-live="polite">0 / 300 words</p>
+          <p class="error" id="pitch-err" aria-live="polite"></p>
+        </div>
+        <div class="field">
+          <label for="samples">Link to writing samples <span class="hint">(optional)</span></label>
+          <input type="url" id="samples" name="samples" placeholder="https://" aria-describedby="samples-err" />
+          <p class="error" id="samples-err" aria-live="polite"></p>
+        </div>
+        <div class="honeypot" aria-hidden="true">
+          <label for="website">Leave this empty</label>
+          <input type="text" id="website" name="_gotcha" tabindex="-1" autocomplete="off" />
+        </div>
+        <div>
+          <button type="submit" class="button" id="submit">Send pitch</button>
+        </div>
+        <p class="form-status" id="status" role="status" hidden></p>
+      </form>
+    </div>
+  </div>
+</BaseLayout>
+
+<script>
+  import { initPitchForm } from '../scripts/pitch';
+  initPitchForm();
+</script>

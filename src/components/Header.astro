@@ -1,0 +1,29 @@
+---
+import { url, SITE } from '../lib/utils';
+const path = Astro.url.pathname.replace(/\/$/, '');
+const links = [
+  { href: '/articles', label: 'Articles' },
+  { href: '/topics/geopolitics', label: 'Topics', match: '/topics' },
+  { href: '/authors', label: 'Contributors' },
+  { href: '/about', label: 'About' },
+];
+const isCurrent = (href: string) => path.startsWith(url(href).replace(/\/$/, ''));
+---
+<header class="site-header">
+  <div class="wrap">
+    <a class="brand" href={url('/')} aria-label={`${SITE.name} — home`}>
+      <svg class="brand-mark" viewBox="0 0 40 40" aria-hidden="true">
+        <rect width="40" height="40" rx="8" fill="var(--accent)" />
+        <path d="M5 31 L15 15 L20 22 L26 11 L35 31 Z" fill="var(--surface)" />
+        <path d="M23.6 15.3 L26 11 L28.6 16.4 L26.4 15.4 Z" fill="var(--accent-soft)" />
+      </svg>
+      <span class="brand-name">Tian Shan Policy Review<small>Central Asia · Analysis</small></span>
+    </a>
+    <nav class="nav" aria-label="Main">
+      {links.map((l) => (
+        <a href={url(l.href)} aria-current={isCurrent(l.match ?? l.href) ? 'page' : undefined}>{l.label}</a>
+      ))}
+      <a class="cta" href={url('/contribute')} aria-current={isCurrent('/contribute') ? 'page' : undefined}>Write for us</a>
+    </nav>
+  </div>
+</header>

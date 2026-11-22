@@ -1,0 +1,13 @@
+---
+import BaseLayout from '../layouts/BaseLayout.astro';
+import { url } from '../lib/utils';
+---
+<BaseLayout title="Page not found">
+  <div class="wrap">
+    <header class="page-head">
+      <p class="eyebrow">404</p>
+      <h1>This page has wandered off the map</h1>
+      <p>Try the <a href={url('/articles')}>article archive</a> or head back <a href={url('/')}>home</a>.</p>
+    </header>
+  </div>
+</BaseLayout>

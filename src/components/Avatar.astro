@@ -1,0 +1,6 @@
+---
+interface Props { name: string; size?: 'md' | 'lg' }
+const { name, size = 'md' } = Astro.props;
+const initials = name.split(/\s+/).map((p) => p[0]).slice(0, 2).join('').toUpperCase();
+---
+<span class:list={['avatar', size === 'lg' && 'lg']} aria-hidden="true">{initials}</span>

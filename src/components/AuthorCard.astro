@@ -1,0 +1,14 @@
+---
+import Avatar from './Avatar.astro';
+import { url, type Author } from '../lib/utils';
+interface Props { author: Author; count?: number }
+const { author, count } = Astro.props;
+---
+<div class="author-card">
+  <Avatar name={author.data.name} />
+  <div>
+    <h3><a href={url(`/authors/${author.id}`)}>{author.data.name}</a></h3>
+    <p>{author.data.role} · {author.data.location}</p>
+    {count !== undefined && <p>{count} {count === 1 ? 'article' : 'articles'}</p>}
+  </div>
+</div>

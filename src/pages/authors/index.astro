@@ -1,0 +1,30 @@
+---
+import BaseLayout from '../../layouts/BaseLayout.astro';
+import AuthorCard from '../../components/AuthorCard.astro';
+import { getCollection } from 'astro:content';
+import { getArticles, url } from '../../lib/utils';
+
+const [authors, articles] = await Promise.all([getCollection('authors'), getArticles()]);
+const countFor = (id: string) => articles.filter((a) => a.data.author.id === id).length;
+const editors = authors.filter((a) => a.data.editor).sort((a, b) => a.data.name.localeCompare(b.data.name));
+const contributors = authors.filter((a) => !a.data.editor).sort((a, b) => countFor(b.id) - countFor(a.id) || a.data.name.localeCompare(b.data.name));
+---
+<BaseLayout title="Contributors" description="The editors, researchers and analysts behind Tian Shan Policy Review.">
+  <div class="wrap">
+    <header class="page-head">
+      <p class="eyebrow">People</p>
+      <h1>Contributors</h1>
+      <p>Students and early-career analysts writing from across Central Asia and its diaspora. <a href={url('/contribute')}>Want to join them?</a></p>
+    </header>
+    {editors.length > 0 && (
+      <section class="section" aria-labelledby="editors">
+        <div class="section-head"><h2 id="editors">Editorial team</h2></div>
+        <div class="grid">{editors.map((a) => <AuthorCard author={a} count={countFor(a.id)} />)}</div>
+      </section>
+    )}
+    <section class="section" aria-labelledby="writers">
+      <div class="section-head"><h2 id="writers">Writers</h2></div>
+      <div class="grid">{contributors.map((a) => <AuthorCard author={a} count={countFor(a.id)} />)}</div>
+    </section>
+  </div>
+</BaseLayout>

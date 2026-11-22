@@ -1,0 +1,27 @@
+---
+import BaseLayout from '../../layouts/BaseLayout.astro';
+import ArticleCard from '../../components/ArticleCard.astro';
+import { TOPICS } from '../../data/taxonomy';
+import { getArticles, url } from '../../lib/utils';
+
+export function getStaticPaths() {
+  return TOPICS.map((topic) => ({ params: { topic: topic.slug }, props: { topic } }));
+}
+const { topic } = Astro.props;
+const articles = (await getArticles()).filter((a) => a.data.topics.includes(topic.slug));
+---
+<BaseLayout title={topic.label} description={topic.blurb}>
+  <div class="wrap">
+    <header class="page-head">
+      <p class="eyebrow">Topic</p>
+      <h1>{topic.label}</h1>
+      <p>{topic.blurb}</p>
+      <nav class="tags" aria-label="Other topics" style="margin-top:16px">
+        {TOPICS.filter((t) => t.slug !== topic.slug).map((t) => <a class="tag" href={url(`/topics/${t.slug}`)}>{t.label}</a>)}
+      </nav>
+    </header>
+    {articles.length
+      ? <div class="grid">{articles.map((a) => <ArticleCard article={a} />)}</div>
+      : <p class="empty">No articles in this topic yet. <a href={url('/contribute')}>Pitch one?</a></p>}
+  </div>
+</BaseLayout>

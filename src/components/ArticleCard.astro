@@ -1,0 +1,18 @@
+---
+import { getEntry } from 'astro:content';
+import TagList from './TagList.astro';
+import { formatDate, readingTime, url, type Article } from '../lib/utils';
+interface Props { article: Article; headingLevel?: 'h2' | 'h3' }
+const { article, headingLevel: H = 'h3' } = Astro.props;
+const author = await getEntry(article.data.author);
+---
+<article class="card">
+  <TagList topics={article.data.topics} />
+  <H><a href={url(`/articles/${article.id}`)}>{article.data.title}</a></H>
+  <p>{article.data.dek}</p>
+  <div class="meta">
+    {author && <a href={url(`/authors/${author.id}`)}>{author.data.name}</a>} ·
+    <time datetime={article.data.date.toISOString()}>{formatDate(article.data.date)}</time> ·
+    {readingTime(article.body)} min read
+  </div>
+</article>

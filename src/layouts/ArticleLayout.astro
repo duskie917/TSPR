@@ -1,0 +1,61 @@
+---
+import BaseLayout from './BaseLayout.astro';
+import TagList from '../components/TagList.astro';
+import ArticleCard from '../components/ArticleCard.astro';
+import Avatar from '../components/Avatar.astro';
+import { getEntry } from 'astro:content';
+import { formatDate, readingTime, url, type Article } from '../lib/utils';
+
+interface Props { article: Article; related: Article[] }
+const { article, related } = Astro.props;
+const author = await getEntry(article.data.author);
+const { title, dek, date, updated, topics, countries, draft } = article.data;
+---
+<BaseLayout title={title} description={dek} type="article" publishedTime={date}>
+  <script type="application/ld+json" slot="head" set:html={JSON.stringify({
+    '@context': 'https://schema.org',
+    '@type': 'NewsArticle',
+    headline: title,
+    description: dek,
+    datePublished: date.toISOString(),
+    dateModified: (updated ?? date).toISOString(),
+    author: author ? { '@type': 'Person', name: author.data.name } : undefined,
+    publisher: { '@type': 'Organization', name: 'Tian Shan Policy Review' },
+  })} />
+  <div class="wrap">
+    <article>
+      <header class="article-head">
+        {draft && <p class="eyebrow">Draft — not visible in production</p>}
+        <TagList topics={topics} countries={countries} />
+        <h1 style="margin-top:16px">{title}</h1>
+        <p class="dek">{dek}</p>
+        <div class="byline">
+          {author && <span>By <a href={url(`/authors/${author.id}`)}>{author.data.name}</a></span>}
+          <time datetime={date.toISOString()}>{formatDate(date)}</time>
+          {updated && <span>Updated {formatDate(updated)}</span>}
+          <span>{readingTime(article.body)} min read</span>
+        </div>
+      </header>
+      <div class="prose">
+        <slot />
+      </div>
+      <footer class="article-foot">
+        {author && (
+          <div class="author-box">
+            <Avatar name={author.data.name} />
+            <div>
+              <strong><a href={url(`/authors/${author.id}`)}>{author.data.name}</a></strong>
+              <p>{author.data.bio}</p>
+            </div>
+          </div>
+        )}
+      </footer>
+    </article>
+    {related.length > 0 && (
+      <section class="section" aria-labelledby="related">
+        <div class="section-head"><h2 id="related">Related analysis</h2></div>
+        <div class="grid">{related.map((a) => <ArticleCard article={a} />)}</div>
+      </section>
+    )}
+  </div>
+</BaseLayout>

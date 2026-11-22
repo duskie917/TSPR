@@ -1,0 +1,46 @@
+---
+import BaseLayout from '../layouts/BaseLayout.astro';
+import AuthorCard from '../components/AuthorCard.astro';
+import { getCollection } from 'astro:content';
+import { url, SITE } from '../lib/utils';
+const editors = (await getCollection('authors')).filter((a) => a.data.editor);
+---
+<BaseLayout title="About" description="Mission, editorial standards and team of Tian Shan Policy Review.">
+  <div class="wrap">
+    <header class="page-head">
+      <p class="eyebrow">About</p>
+      <h1>A new generation of voices on Central Asia</h1>
+      <p>{SITE.name} is an independent, youth-led digital publication and analytical platform covering the geopolitics, energy security, foreign policy and economics of Central Asia.</p>
+    </header>
+    <div class="content">
+      <h2>Our mission</h2>
+      <p>Too much of what is written about Central Asia is written from elsewhere. TSPR exists to give students and early-career analysts from the region a rigorous, edited platform — and to give readers analysis grounded in local knowledge, languages and sources.</p>
+      <p>We are named after the Tian Shan, the “Celestial Mountains” that run through Kazakhstan, Kyrgyzstan, Uzbekistan, Tajikistan and into China — a range that divides and connects the region in equal measure.</p>
+
+      <h2>What we cover</h2>
+      <ul>
+        <li><a href={url('/topics/geopolitics')}><strong>Geopolitics</strong></a> — great-power competition and regional security.</li>
+        <li><a href={url('/topics/energy-security')}><strong>Energy security</strong></a> — hydrocarbons, hydropower, uranium, critical minerals and the transition.</li>
+        <li><a href={url('/topics/foreign-policy')}><strong>Foreign policy</strong></a> — multi-vector diplomacy and regional institutions.</li>
+        <li><a href={url('/topics/economy')}><strong>Economy</strong></a> — trade corridors, investment, remittances and reform.</li>
+      </ul>
+
+      <h2>Editorial standards</h2>
+      <ul>
+        <li><strong>Independence.</strong> TSPR is not affiliated with any government, party or company. Contributors disclose relevant affiliations and funding.</li>
+        <li><strong>Evidence first.</strong> Claims of fact are sourced and linked wherever possible; every piece is fact-checked by an editor before publication.</li>
+        <li><strong>Edited, not rewritten.</strong> We work closely with authors — especially first-time writers — but the argument stays theirs.</li>
+        <li><strong>Corrections.</strong> Errors are corrected promptly and transparently, with a note at the end of the article.</li>
+        <li><strong>Views are the authors’ own</strong> and do not represent TSPR or the authors’ institutions.</li>
+      </ul>
+      <p>Spotted an error? Email <a href={`mailto:${SITE.email}`}>{SITE.email}</a>.</p>
+    </div>
+
+    {editors.length > 0 && (
+      <section class="section" aria-labelledby="team">
+        <div class="section-head"><h2 id="team">Editorial team</h2><a href={url('/authors')}>All contributors →</a></div>
+        <div class="grid">{editors.map((a) => <AuthorCard author={a} />)}</div>
+      </section>
+    )}
+  </div>
+</BaseLayout>
