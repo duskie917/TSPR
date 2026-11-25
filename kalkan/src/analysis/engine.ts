@@ -174,7 +174,9 @@ export class Engine {
     if (level === "no_signs") schemeId = "none";
 
     const schemeAdvice = SCHEME_BY_ID.get(schemeId)?.advice ?? [];
-    const advice = dedupe([...(aiAdvice.length ? aiAdvice : schemeAdvice), ...(aiAdvice.length ? [] : DEFAULT_ADVICE[level])]).slice(0, 4);
+    // Scheme advice already covers "what if I already paid"; add only the general first rule to it.
+    const fallback = schemeAdvice.length ? DEFAULT_ADVICE[level].slice(0, 1) : DEFAULT_ADVICE[level];
+    const advice = dedupe(aiAdvice.length ? aiAdvice : [...schemeAdvice, ...fallback]).slice(0, 4);
 
     return {
       level,
