@@ -88,7 +88,23 @@ export interface Reasoning {
   verify: string[];
 }
 
+export type DoneAction = "money" | "code" | "documents" | "link" | "app";
+
+/** What the user tells about the message: things the text itself cannot show. */
+export interface CheckContext {
+  channel?: "sms" | "messenger" | "call" | "email" | "social" | "other";
+  /** Does the user know the sender? */
+  sender?: "known" | "unknown";
+  /** The user applied for something / was expecting this message. */
+  expected?: boolean;
+  /** What the user has already done. */
+  done?: DoneAction[];
+  /** Free-text comment from the user. */
+  note?: string;
+}
+
 export interface CheckInput {
+  context?: CheckContext;
   text?: string;
   /** Name of the chat/user a message was forwarded from, if any. */
   forwardedFrom?: string;
@@ -111,6 +127,10 @@ export interface Verdict {
   urls: UrlFinding[];
   phones: PhoneFinding[];
   aiUsed: boolean;
+  /** How the user's context changed the assessment. */
+  contextNotes: string[];
+  /** Emergency steps for what the user has already done. */
+  urgent: { action: DoneAction; title: string; steps: string[] }[];
   /** Set when AI was requested but failed (network, refusal...). */
   aiError?: string;
 }

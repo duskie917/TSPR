@@ -3,7 +3,7 @@ import type { Engine } from "../analysis/engine.ts";
 import { verdictJson } from "../analysis/format.ts";
 import { normalizePhone } from "../analysis/phones.ts";
 import { schemeName } from "../analysis/schemes.ts";
-import type { CheckInput } from "../analysis/types.ts";
+import type { CheckContext, CheckInput, DoneAction } from "../analysis/types.ts";
 import { extractUrls, registrableDomain, toUrl } from "../analysis/urls.ts";
 import type { Store } from "../storage/db.ts";
 import { DEMO_HTML } from "./demo.ts";
@@ -46,9 +46,34 @@ async function readJson(req: IncomingMessage): Promise<Record<string, unknown>> 
 
 const str = (v: unknown, max = 6000): string | undefined => (typeof v === "string" && v.trim() ? v.slice(0, max) : undefined);
 
+const CHANNELS = ["sms", "messenger", "call", "email", "social", "other"] as const;
+const DONE = ["money", "code", "documents", "link", "app"] as const;
+
+/** Validates the optional `context` object; unknown values are dropped. */
+function toContext(raw: unknown): CheckContext | undefined {
+  if (!raw || typeof raw !== "object" || Array.isArray(raw)) return undefined;
+  const c = raw as Record<string, unknown>;
+  const ctx: CheckContext = {};
+  if (CHANNELS.includes(c.channel as never)) ctx.channel = c.channel as CheckContext["channel"];
+  if (c.sender === "known" || c.sender === "unknown") ctx.sender = c.sender;
+  if (typeof c.expected === "boolean") ctx.expected = c.expected;
+  if (Array.isArray(c.done)) {
+    const done = c.done.filter((d): d is DoneAction => DONE.includes(d as never));
+    if (done.length) ctx.done = [...new Set(done)];
+  }
+  const note = str(c.note, 1000);
+  if (note) ctx.note = note;
+  return Object.keys(ctx).length ? ctx : undefined;
+}
+
 function toInput(body: Record<string, unknown>): CheckInput {
   const text = [str(body.text), str(body.url, 2000)].filter(Boolean).join("\n") || undefined;
-  const input: CheckInput = { text, phone: str(body.phone, 40), forwardedFrom: str(body.forwarded_from, 200) };
+  const input: CheckInput = {
+    text,
+    phone: str(body.phone, 40),
+    forwardedFrom: str(body.forwarded_from, 200),
+    context: toContext(body.context),
+  };
   if (!input.text && !input.phone) throw new HttpError(400, "provide at least one of: text, url, phone");
   return input;
 }

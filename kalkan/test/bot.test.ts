@@ -128,3 +128,31 @@ test("APK document is flagged", async () => {
   assert.match(messagesTo(60).at(-1)!, /Очень похоже на мошенничество/);
   assert.match(messagesTo(60).at(-1)!, /APK/);
 });
+
+test("context buttons and replies re-evaluate the verdict and alert family", async () => {
+  const { send, press, messagesTo, calls, store } = setup();
+  // Family link: 70 watches over 71.
+  await press(70, "Внук", "fam:invite");
+  const code = /start=fam_([A-Z0-9]+)/.exec(messagesTo(70).at(-1)!)![1]!;
+  await send(71, "Бабушка", `/start fam_${code}`);
+
+  await send(71, "Бабушка", "Вы прошли отбор на международную стажировку. Для регистрации пришлите копию паспорта, ответить нужно сегодня.");
+  const verdict = calls.filter((c) => c.method === "sendMessage" && c.payload.chat_id === 71).at(-1)!;
+  assert.match(String(verdict.payload.text), /Уточните кнопками/);
+  const id = /dn:|cx:(\d+):known/.exec(JSON.stringify(verdict.payload.reply_markup))![1]!;
+  assert.ok(store.getCheck(Number(id)));
+
+  await press(71, "Бабушка", `dn:${id}:documents`);
+  const edit = calls.filter((c) => c.method === "editMessageText").at(-1)!;
+  assert.match(String(edit.payload.text), /Сделайте сейчас/);
+  assert.match(messagesTo(70).at(-1)!, /уже отправили документы/);
+
+  // A text reply to the verdict adds context instead of starting a new check.
+  const before = calls.filter((c) => c.method === "editMessageText").length;
+  await send(71, "Бабушка", "я еще и деньги перевела за регистрацию", {
+    reply_to_message: { message_id: 1, date: 0, chat: { id: 71, type: "private" }, from: { id: 1, is_bot: true, first_name: "Kalkan" }, text: "Уровень риска" },
+  });
+  const edits = calls.filter((c) => c.method === "editMessageText");
+  assert.equal(edits.length, before + 1);
+  assert.match(String(edits.at(-1)!.payload.text), /перевели деньги/);
+});

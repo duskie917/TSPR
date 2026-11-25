@@ -1,4 +1,5 @@
 import type { AiAnalyzer } from "./ai.ts";
+import { applyContext, urgentSteps } from "./context.ts";
 import { buildReasoning } from "./explain.ts";
 import { analyzeFile, virusTotalLookup } from "./files.ts";
 import { analyzePhone, extractPhones } from "./phones.ts";
@@ -172,6 +173,11 @@ export class Engine {
     else if (stagesFound.size === 3 && actionFound) score = Math.max(score, 60);
     else if (stagesFound.size === 2 && actionFound) score = Math.max(score, 40);
 
+    // The user's own context: who sent it, was it expected, what was already done.
+    const ctxEffect = applyContext(input.context, { score, schemeId: topScheme?.id ?? "none", hasAction: stagesFound.has("action") });
+    signals.push(...ctxEffect.signals);
+    score = clamp(score + ctxEffect.scoreDelta);
+
     // 6. AI second opinion. It can raise the risk but never lower what the rules found:
     // a scam message may contain text designed to talk the model out of flagging it.
     let schemeId = topScheme?.id ?? "none";
@@ -181,7 +187,7 @@ export class Engine {
     let aiVerify: string[] = [];
     let aiUsed = false;
     let aiError: string | undefined;
-    const hasContent = Boolean(input.text?.trim() || input.image || input.file || input.phone);
+    const hasContent = Boolean(input.text?.trim() || input.image || input.file || input.phone || input.context?.note);
     if (this.opts.ai && hasContent) {
       try {
         const findings = signals.map((s) => `- [${s.source}] ${s.text}`).join("\n");
@@ -218,7 +224,7 @@ export class Engine {
     const fallback = schemeAdvice.length ? DEFAULT_ADVICE[level].slice(0, 1) : DEFAULT_ADVICE[level];
     const reasoning = buildReasoning({ level, schemeId, signals: dedupeSignals(signals) });
     if (level !== "no_signs") reasoning.missing = dedupe([...reasoning.missing, ...aiMissing]).slice(0, 4);
-    reasoning.verify = dedupe([...reasoning.verify, ...aiVerify]).slice(0, 4);
+    reasoning.verify = dedupe([...ctxEffect.verify, ...reasoning.verify, ...aiVerify]).slice(0, 4);
     // Skip advice that only repeats the «На самом деле» fact.
     const repeatsReality = (a: string) => Boolean(reasoning.reality) && overlap(a, reasoning.reality!) >= 0.6;
     // ...and advice already listed under «Что проверить самостоятельно».
@@ -238,6 +244,8 @@ export class Engine {
       advice,
       urls,
       phones,
+      contextNotes: ctxEffect.notes,
+      urgent: urgentSteps(input.context, level),
       aiUsed,
       aiError,
     };

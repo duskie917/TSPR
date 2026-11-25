@@ -7,13 +7,55 @@ import { escapeHtml, formatVerdict, LEVEL_TITLE } from "../analysis/format.ts";
 import { sha256 } from "../analysis/files.ts";
 import { normalizePhone } from "../analysis/phones.ts";
 import { schemeName } from "../analysis/schemes.ts";
-import type { CheckInput, Verdict } from "../analysis/types.ts";
+import { mergeContext, parseContextNote } from "../analysis/context.ts";
+import type { CheckContext, CheckInput, DoneAction, Verdict } from "../analysis/types.ts";
 import { extractUrls, registrableDomain, toUrl } from "../analysis/urls.ts";
 import type { Store } from "../storage/db.ts";
 import { BUTTONS, T } from "./texts.ts";
 
 const MAX_DOWNLOAD = 20 * 1024 * 1024; // Bot API getFile limit
 const RATE_LIMIT = { max: 20, windowMs: 10 * 60_000 };
+/** How long a checked message stays in memory so the user can add context. Never written to the database. */
+const SESSION_TTL_MS = 30 * 60_000;
+const MAX_SESSIONS = 1000;
+
+const DONE_BUTTONS: [DoneAction, string][] = [
+  ["money", "💸 Перевел(а) деньги"],
+  ["code", "🔢 Назвал(а) код"],
+  ["documents", "🪪 Отправил(а) документы"],
+  ["link", "🔗 Перешел(а) по ссылке"],
+  ["app", "📲 Установил(а) приложение"],
+];
+
+interface Session {
+  tgId: number;
+  chatId: number;
+  messageId: number;
+  input: CheckInput;
+  level: Verdict["level"];
+  expires: number;
+}
+
+const mark = (on: boolean | undefined, label: string) => (on ? `✓ ${label}` : label);
+
+function verdictKeyboard(id: number, s: Session | undefined, hasIndicators: boolean, menu: "main" | "done" = "main"): InlineKeyboard {
+  const c = s?.input.context ?? {};
+  const kb = new InlineKeyboard();
+  if (menu === "done") {
+    DONE_BUTTONS.forEach(([action, label], i) => {
+      kb.text(mark(c.done?.includes(action), label), `dn:${id}:${action}`);
+      if (i % 2 === 1) kb.row();
+    });
+    return kb.row().text("← Назад", `cx:${id}:back`);
+  }
+  kb.text("👍 Верно", `fb:${id}:1`).text("👎 Ошибка", `fb:${id}:-1`);
+  if (hasIndicators) kb.row().text("🚩 Пожаловаться на мошенника", `rep:${id}`);
+  if (s) {
+    kb.row().text(mark(c.sender === "known", "👤 Знаю отправителя"), `cx:${id}:known`).text(mark(c.sender === "unknown", "❓ Незнакомый"), `cx:${id}:unknown`);
+    kb.row().text(mark(c.expected, "📝 Я сам(а) ждал(а) это"), `cx:${id}:expected`).text(mark(Boolean(c.done?.length), "⚠️ Я уже ответил(а)"), `cx:${id}:done`);
+  }
+  return kb;
+}
 
 export interface BotDeps {
   engine: Engine;
@@ -54,6 +96,18 @@ export function createBot(token: string, deps: BotDeps, botInfo?: BotConfig<Cont
       if (!res.ok) throw new Error(`download failed: ${res.status}`);
       return new Uint8Array(await res.arrayBuffer());
     });
+
+  const sessions = new Map<number, Session>();
+  function remember(id: number, s: Session) {
+    const now = Date.now();
+    for (const [k, v] of sessions) if (v.expires < now) sessions.delete(k);
+    if (sessions.size >= MAX_SESSIONS) sessions.delete(sessions.keys().next().value!);
+    sessions.set(id, s);
+  }
+  function sessionFor(id: number, tgId: number): Session | undefined {
+    const s = sessions.get(id);
+    return s && s.tgId === tgId && s.expires > Date.now() ? s : undefined;
+  }
 
   const hits = new Map<number, number[]>();
   function rateLimited(userId: number): boolean {
@@ -156,7 +210,12 @@ export function createBot(token: string, deps: BotDeps, botInfo?: BotConfig<Cont
     const id = Number(ctx.match[1]);
     store.setFeedback(id, ctx.from.id, ctx.match[2] === "1" ? 1 : -1);
     await ctx.answerCallbackQuery({ text: T.feedbackThanks });
-    await ctx.editMessageReplyMarkup({ reply_markup: reportKeyboard(id, store) }).catch(() => {});
+    const row = store.getCheck(id);
+    const ind = row ? (JSON.parse(row.indicators) as { phones: string[]; domains: string[] }) : { phones: [], domains: [] };
+    const full = verdictKeyboard(id, sessionFor(id, ctx.from.id), ind.phones.length + ind.domains.length > 0);
+    // Feedback buttons disappear once used; keep the rest.
+    const kb = new InlineKeyboard(full.inline_keyboard.filter((r) => !r.some((b) => "callback_data" in b && b.callback_data.startsWith("fb:"))));
+    await ctx.editMessageReplyMarkup({ reply_markup: kb }).catch(() => {});
   });
 
   bot.callbackQuery(/^rep:(\d+)$/, async (ctx) => {
@@ -170,8 +229,8 @@ export function createBot(token: string, deps: BotDeps, botInfo?: BotConfig<Cont
   });
 
   // ---------- checks ----------
-  async function runCheck(ctx: Context, input: CheckInput, kind: string) {
-    if (!ctx.from) return;
+  async function runCheck(ctx: Context, input: CheckInput, kind: string, existing?: { id: number; session: Session }) {
+    if (!ctx.from || !ctx.chat) return;
     if (rateLimited(ctx.from.id)) return void (await ctx.reply(T.rateLimited));
     await ctx.replyWithChatAction("typing").catch(() => {});
 
@@ -187,30 +246,110 @@ export function createBot(token: string, deps: BotDeps, botInfo?: BotConfig<Cont
       phones: verdict.phones.map((p) => p.normalized),
       domains: [...new Set(verdict.urls.map((u) => registrableDomain(u.host)))],
     };
-    const id = store.logCheck({ tgId: ctx.from.id, kind, level: verdict.level, score: verdict.score, schemeId: verdict.schemeId, indicators });
+    const hasIndicators = indicators.phones.length + indicators.domains.length > 0;
+    const text = `${formatVerdict(verdict)}\n\n<i>${T.contextHint}</i>`;
+    const previous = existing?.session;
 
-    const kb = new InlineKeyboard().text("👍 Верно", `fb:${id}:1`).text("👎 Ошибка", `fb:${id}:-1`);
-    if (indicators.phones.length || indicators.domains.length) kb.row().text("🚩 Пожаловаться на мошенника", `rep:${id}`);
-    await ctx.reply(formatVerdict(verdict), {
-      parse_mode: "HTML",
-      reply_markup: kb,
-      link_preview_options: { is_disabled: true },
-      reply_parameters: ctx.msg ? { message_id: ctx.msg.message_id, allow_sending_without_reply: true } : undefined,
-    });
+    let id: number;
+    let messageId: number;
+    if (existing) {
+      id = existing.id;
+      messageId = existing.session.messageId;
+      store.updateCheck(id, { level: verdict.level, score: verdict.score, schemeId: verdict.schemeId });
+    } else {
+      id = store.logCheck({ tgId: ctx.from.id, kind, level: verdict.level, score: verdict.score, schemeId: verdict.schemeId, indicators });
+      messageId = 0;
+    }
+    const session: Session = { tgId: ctx.from.id, chatId: ctx.chat.id, messageId, input, level: verdict.level, expires: Date.now() + SESSION_TTL_MS };
+    const kb = verdictKeyboard(id, session, hasIndicators);
 
-    if (verdict.level !== "no_signs") {
+    if (existing) {
+      await ctx.api
+        .editMessageText(session.chatId, messageId, text, { parse_mode: "HTML", reply_markup: kb, link_preview_options: { is_disabled: true } })
+        .catch(() => {});
+    } else {
+      const sent = await ctx.reply(text, {
+        parse_mode: "HTML",
+        reply_markup: kb,
+        link_preview_options: { is_disabled: true },
+        reply_parameters: ctx.msg ? { message_id: ctx.msg.message_id, allow_sending_without_reply: true } : undefined,
+      });
+      session.messageId = sent.message_id;
+    }
+    remember(id, session);
+
+    // Family alerts: on a new risky verdict, and again when the user says they already acted.
+    const newDone = (input.context?.done ?? []).filter((d) => !previous?.input.context?.done?.includes(d));
+    const becameRisky = verdict.level !== "no_signs" && (!previous || previous.level === "no_signs");
+    if (verdict.level !== "no_signs" && (becameRisky || newDone.length)) {
       const ward = escapeHtml(displayName(ctx.from));
       const scheme = schemeName(verdict.schemeId);
+      const msg = newDone.length && verdict.urgent.length
+        ? T.familyUrgent(ward, verdict.urgent.filter((u) => newDone.includes(u.action)).map((u) => escapeHtml(u.title.replace(/^Вы /, ""))))
+        : T.familyAlert(ward, LEVEL_TITLE[verdict.level], scheme && escapeHtml(scheme));
       for (const guardian of store.guardiansOf(ctx.from.id)) {
-        await ctx.api
-          .sendMessage(guardian, T.familyAlert(ward, LEVEL_TITLE[verdict.level], scheme && escapeHtml(scheme)), { parse_mode: "HTML" })
-          .catch((err) => console.error("family alert failed", err));
+        await ctx.api.sendMessage(guardian, msg, { parse_mode: "HTML" }).catch((err) => console.error("family alert failed", err));
       }
     }
   }
 
+  /** Re-runs a recent check with more context from the user. */
+  async function recheck(ctx: Context, id: number, update: (c: CheckContext) => CheckContext) {
+    if (!ctx.from) return false;
+    const session = sessionFor(id, ctx.from.id);
+    if (!session) return false;
+    const input = { ...session.input, context: update({ ...(session.input.context ?? {}) }) };
+    await runCheck(ctx, input, "recheck", { id, session });
+    return true;
+  }
+
+  bot.callbackQuery(/^cx:(\d+):(known|unknown|expected|done|back)$/, async (ctx) => {
+    const id = Number(ctx.match[1]);
+    const key = ctx.match[2];
+    const session = sessionFor(id, ctx.from.id);
+    if (!session) return ctx.answerCallbackQuery({ text: T.contextExpired, show_alert: true });
+    if (key === "done" || key === "back") {
+      await ctx.answerCallbackQuery();
+      const row = store.getCheck(id);
+      const ind = row ? (JSON.parse(row.indicators) as { phones: string[]; domains: string[] }) : { phones: [], domains: [] };
+      await ctx.editMessageReplyMarkup({ reply_markup: verdictKeyboard(id, session, ind.phones.length + ind.domains.length > 0, key === "done" ? "done" : "main") }).catch(() => {});
+      return;
+    }
+    await ctx.answerCallbackQuery({ text: T.contextUpdated });
+    await recheck(ctx, id, (c) => {
+      if (key === "expected") c.expected = !c.expected;
+      else c.sender = c.sender === key ? undefined : (key as "known" | "unknown");
+      return c;
+    });
+  });
+
+  bot.callbackQuery(/^dn:(\d+):(money|code|documents|link|app)$/, async (ctx) => {
+    const id = Number(ctx.match[1]);
+    const action = ctx.match[2] as DoneAction;
+    await ctx.answerCallbackQuery({ text: T.contextUpdated });
+    const ok = await recheck(ctx, id, (c) => {
+      const done = new Set(c.done ?? []);
+      if (done.has(action)) done.delete(action);
+      else done.add(action);
+      c.done = done.size ? [...done] : undefined;
+      return c;
+    });
+    if (!ok) await ctx.reply(T.contextExpired);
+  });
+
   bot.on("message:text", async (ctx) => {
     if (ctx.msg.text.startsWith("/")) return; // unknown command
+    // A reply to one of our verdicts is context for that check, not a new message to check.
+    const repliedTo = ctx.msg.reply_to_message;
+    if (repliedTo?.from?.id === ctx.me.id) {
+      const entry = [...sessions.entries()].find(([, s]) => s.messageId === repliedTo.message_id && s.tgId === ctx.from.id);
+      if (entry) {
+        const added = parseContextNote(ctx.msg.text);
+        await recheck(ctx, entry[0], (c) => mergeContext(c, added));
+        return;
+      }
+      if (repliedTo.text && /Уровень риска/.test(repliedTo.text)) return void (await ctx.reply(T.contextExpired));
+    }
     await runCheck(ctx, { text: ctx.msg.text, forwardedFrom: forwardedFrom(ctx.msg) }, "text");
   });
 
@@ -270,12 +409,4 @@ export function createBot(token: string, deps: BotDeps, botInfo?: BotConfig<Cont
   return bot;
 }
 
-function reportKeyboard(id: number, store: Store): InlineKeyboard {
-  const row = store.getCheck(id);
-  const kb = new InlineKeyboard();
-  if (!row) return kb;
-  const ind = JSON.parse(row.indicators) as { phones: string[]; domains: string[] };
-  if (ind.phones.length || ind.domains.length) kb.text("🚩 Пожаловаться на мошенника", `rep:${id}`);
-  return kb;
-}
 

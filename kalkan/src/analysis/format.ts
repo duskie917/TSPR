@@ -26,6 +26,14 @@ export function formatVerdict(v: Verdict): string {
   const name = v.schemeId !== "none" ? (schemeName(v.schemeId) ?? (v.schemeId === "other" ? "Другая мошенническая схема" : undefined)) : undefined;
   if (name && v.level !== "no_signs") lines.push(`Похоже на схему: <b>${escapeHtml(name)}</b>`);
   lines.push(`Уровень риска: ${v.score}/100 <i>(${SCORE_NOTE})</i>`);
+  if (v.contextNotes.length) lines.push(`<i>Учтено: ${escapeHtml(v.contextNotes.join(" "))}</i>`);
+
+  if (v.urgent.length) {
+    lines.push("", "🚨 <b>Сделайте сейчас</b>");
+    for (const u of v.urgent) {
+      lines.push(`<b>${escapeHtml(u.title)}:</b>`, ...u.steps.map((s) => `   • ${escapeHtml(s)}`));
+    }
+  }
 
   lines.push("", "<b>Почему я так думаю</b>", escapeHtml(v.explanation ?? r.summary));
   if (r.chain.length) {
@@ -81,6 +89,8 @@ export function verdictJson(v: Verdict) {
     advice: v.advice,
     urls: v.urls.map((u) => ({ url: u.url, host: u.host, score: u.score })),
     phones: v.phones.map((p) => ({ phone: `+${p.normalized}`, score: p.score })),
+    context_notes: v.contextNotes,
+    urgent: v.urgent,
     ai_used: v.aiUsed,
     disclaimer: "Оценка по признакам, а не гарантия безопасности.",
   };

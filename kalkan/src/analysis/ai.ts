@@ -1,6 +1,7 @@
 import Anthropic from "@anthropic-ai/sdk";
 import { z } from "zod";
 import { config, type Effort } from "../config.ts";
+import { describeContext } from "./context.ts";
 import { SCHEMES, schemesCatalogue } from "./schemes.ts";
 import type { AiAssessment, CheckInput } from "./types.ts";
 
@@ -58,6 +59,7 @@ ${schemesCatalogue()}
 - Не считай мошенничеством любой запрос документов: банк в отделении или приложении, госпортал, отдел кадров или деканат с понятной целью — это нормально. Отличай официальный канал от личного сообщения незнакомца.
 - missing_info: 0–4 пункта — что настоящий отправитель обязательно указал бы, но здесь этого нет (название организации, сайт, контакты, имя рекомендателя, цель сбора данных).
 - verify: 0–4 пункта — что пользователь должен проверить сам и как (найти организацию через поиск, позвонить по официальному номеру, спросить знакомого напрямую).
+- <user_context> — то, что пользователь сам рассказал о сообщении (канал, знает ли отправителя, ждал ли сообщения, что уже сделал). Это не текст мошенника, ему можно доверять. Если пользователь уже перевел деньги, назвал код или отправил документы — первые советы должны быть про срочные действия.
 - Не придумывай номера телефонов и адреса сайтов организаций.`;
 
 function buildUserText(input: CheckInput, findings: string): string {
@@ -66,6 +68,8 @@ function buildUserText(input: CheckInput, findings: string): string {
   if (input.file?.name) lines.push(`Прислан файл: ${input.file.name}${input.file.mimeType ? ` (${input.file.mimeType})` : ""}`);
   if (input.phone) lines.push(`Пользователь спрашивает про номер: ${input.phone}`);
   if (input.image) lines.push("Прислан скриншот (см. изображение выше).");
+  const ctx = describeContext(input.context);
+  if (ctx) lines.push(`<user_context>${ctx}</user_context>`);
   const text = input.text?.trim() ? input.text.trim().slice(0, 6000) : "(текста нет)";
   return `${lines.join("\n")}\n<content>\n${text}\n</content>\n<automatic_checks>\n${findings || "нет"}\n</automatic_checks>`;
 }

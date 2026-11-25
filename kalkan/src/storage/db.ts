@@ -118,6 +118,10 @@ export class Store {
     return Number(result.lastInsertRowid);
   }
 
+  updateCheck(id: number, v: { level: string; score: number; schemeId: string }): void {
+    this.db.prepare("UPDATE checks SET level = ?, score = ?, scheme_id = ? WHERE id = ?").run(v.level, v.score, v.schemeId, id);
+  }
+
   getCheck(id: number): CheckRow | undefined {
     return this.db.prepare("SELECT * FROM checks WHERE id = ?").get(id) as CheckRow | undefined;
   }
