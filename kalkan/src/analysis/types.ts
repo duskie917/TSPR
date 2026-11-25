@@ -1,3 +1,7 @@
+import type { Stage } from "./schemes.ts";
+
+export type { Stage };
+
 /** 0–100. Higher means more likely to be fraud. */
 export type RiskScore = number;
 
@@ -14,12 +18,14 @@ export interface Signal {
   weight: number;
   /** Where the signal came from. */
   source: "rules" | "url" | "phone" | "file" | "ai" | "reports" | "safe_browsing" | "virustotal";
+  /** Which step of the manipulation this signal belongs to, when it is one. */
+  stage?: Stage;
 }
 
 export interface SchemeMatch {
   id: string;
   score: RiskScore;
-  matched: string[];
+  matched: { label: string; stage: Stage }[];
 }
 
 export interface UrlFinding {
@@ -51,6 +57,26 @@ export interface AiAssessment {
   advice: string[];
 }
 
+export interface ReasoningStep {
+  stage: Stage;
+  title: string;
+  /** Concrete evidence found in the message for this step. */
+  items: string[];
+}
+
+export interface Reasoning {
+  /** One or two sentences: what this looks like and how the scheme works. */
+  summary: string;
+  /** Manipulation steps found, in the order a scam unfolds. */
+  chain: ReasoningStep[];
+  /** Why the combination matters (or why nothing alarming was found). */
+  conclusion: string;
+  /** «На самом деле…» fact for the matched scheme. */
+  reality?: string;
+  /** Evidence outside the text: reports, Safe Browsing, VirusTotal, technical link details. */
+  extra: string[];
+}
+
 export interface CheckInput {
   text?: string;
   /** Name of the chat/user a message was forwarded from, if any. */
@@ -68,6 +94,8 @@ export interface Verdict {
   schemeId: string;
   signals: Signal[];
   explanation?: string;
+  /** Rule-based explanation of the logic behind the verdict. */
+  reasoning: Reasoning;
   advice: string[];
   urls: UrlFinding[];
   phones: PhoneFinding[];

@@ -8,7 +8,7 @@ import { sha256 } from "../analysis/files.ts";
 import { normalizePhone } from "../analysis/phones.ts";
 import { schemeName } from "../analysis/schemes.ts";
 import type { CheckInput, Verdict } from "../analysis/types.ts";
-import { extractUrls, registrableDomain } from "../analysis/urls.ts";
+import { extractUrls, registrableDomain, toUrl } from "../analysis/urls.ts";
 import type { Store } from "../storage/db.ts";
 import { BUTTONS, T } from "./texts.ts";
 
@@ -91,7 +91,7 @@ export function createBot(token: string, deps: BotDeps, botInfo?: BotConfig<Cont
     let added = false;
     let count = 0;
     if (url) {
-      const domain = registrableDomain(new URL(url).hostname);
+      const domain = registrableDomain(toUrl(url).hostname);
       added = store.addReport("domain", domain, ctx.from.id);
       count = store.reportCount("domain", domain);
     } else {

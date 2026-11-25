@@ -71,7 +71,7 @@ test("deobfuscates Latin look-alike letters", () => {
 });
 
 test("url extraction", () => {
-  assert.deepEqual(extractUrls("зайди на nbkr-credit.top/form, быстро"), ["http://nbkr-credit.top/form"]);
+  assert.deepEqual(extractUrls("зайди на nbkr-credit.top/form, быстро"), ["nbkr-credit.top/form"]);
   assert.deepEqual(extractUrls("https://mbank.kg/ru и т.е. 1.5 раза"), ["https://mbank.kg/ru"]);
   assert.deepEqual(extractUrls("пиши на info@mail.ru"), []);
 });
@@ -132,4 +132,41 @@ test("AI failure falls back to rules", async () => {
   assert.equal(v.level, "danger");
   assert.equal(v.aiUsed, false);
   assert.equal(v.aiError, "network");
+});
+
+const NEW_SCHEMES: [string, string][] = [
+  ["romance_scam", "Дорогая моя, я военный врач, служу в Сирии. Я отправил тебе подарок, но посылка застряла на таможне, переведи 15 000 сом на таможенный сбор"],
+  ["fake_charity", "Помогите собрать на операцию ребенку! Каждый сом важен. Карта мамы: 4169 5853 1234 5678. Перешлите всем друзьям"],
+  ["fake_fine", "Безопасный город: у вас неоплаченный штраф 3000 сом. Оплатите сегодня по ссылке, иначе арест счета: bgorod-shtraf.top/pay"],
+  ["operator_sim", "Уважаемый абонент! Срок действия вашего номера истекает. Чтобы продлить договор, назовите код из СМС, иначе ваш номер будет заблокирован"],
+];
+for (const [scheme, text] of NEW_SCHEMES) {
+  test(`detects ${scheme}`, async () => {
+    const v = await engine.check({ text });
+    assert.equal(v.schemeId, scheme, JSON.stringify(v.signals));
+    assert.notEqual(v.level, "no_signs");
+  });
+}
+
+test("legit charity report and real fine reminder do not alarm", async () => {
+  for (const text of [
+    "Фонд опубликовал отчет: в октябре собрано 2,4 млн сом, оплачено лечение 12 детей.",
+    "Напоминаем: срок уплаты налога на имущество — до 1 декабря. Оплатить можно в приложении вашего банка.",
+  ]) {
+    const v = await engine.check({ text });
+    assert.equal(v.level, "no_signs", `${text}: ${v.score} ${JSON.stringify(v.signals)}`);
+  }
+});
+
+test("reasoning explains the manipulation chain", async () => {
+  const v = await engine.check({
+    text: "Служба безопасности банка: подозрительная операция по вашей карте. Срочно продиктуйте код из СМС и никому не говорите.",
+  });
+  const stages = v.reasoning.chain.map((c) => c.stage);
+  assert.deepEqual(stages, ["trust", "bait", "urgency", "action"]);
+  assert.match(v.reasoning.conclusion, /все 4 шага/);
+  assert.ok(v.reasoning.reality);
+  const calm = await engine.check({ text: "Привет, купи хлеба" });
+  assert.equal(calm.reasoning.chain.length, 0);
+  assert.match(calm.reasoning.conclusion, /приемов манипуляции нет/);
 });

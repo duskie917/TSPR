@@ -1,7 +1,8 @@
 import { config } from "../config.ts";
+import { STAGE_HINT } from "./explain.ts";
 import { formatPhone } from "./phones.ts";
 import { schemeName } from "./schemes.ts";
-import type { Verdict } from "./types.ts";
+import type { Stage, Verdict } from "./types.ts";
 
 export const escapeHtml = (s: string): string =>
   s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
@@ -12,21 +13,29 @@ export const LEVEL_TITLE: Record<Verdict["level"], string> = {
   no_signs: "🟢 Явных признаков мошенничества не найдено",
 };
 
+export const SCORE_NOTE = "оценка по признакам, а не вероятность";
+
+const STAGE_ICON: Record<Stage, string> = { trust: "🎭", bait: "🎣", urgency: "⏱", action: "💸" };
+
 /** Telegram HTML message for a verdict. */
 export function formatVerdict(v: Verdict): string {
+  const r = v.reasoning;
   const lines: string[] = [`<b>${LEVEL_TITLE[v.level]}</b>`];
   const name = v.schemeId !== "none" ? (schemeName(v.schemeId) ?? (v.schemeId === "other" ? "Другая мошенническая схема" : undefined)) : undefined;
   if (name && v.level !== "no_signs") lines.push(`Похоже на схему: <b>${escapeHtml(name)}</b>`);
-  lines.push(`Уровень риска: ${v.score}/100`);
+  lines.push(`Уровень риска: ${v.score}/100 <i>(${SCORE_NOTE})</i>`);
 
-  if (v.explanation) lines.push("", escapeHtml(v.explanation));
-
-  const flags = v.signals.slice(0, 6);
-  if (flags.length > 0 && v.level !== "no_signs") {
-    lines.push("", "<b>Что настораживает:</b>", ...flags.map((s) => `• ${escapeHtml(s.text)}`));
-  } else if (flags.length > 0) {
-    lines.push("", "<b>На что обратить внимание:</b>", ...flags.slice(0, 3).map((s) => `• ${escapeHtml(s.text)}`));
+  lines.push("", "<b>Почему я так думаю</b>", escapeHtml(v.explanation ?? r.summary));
+  if (r.chain.length) {
+    lines.push("");
+    for (const step of r.chain) {
+      lines.push(`${STAGE_ICON[step.stage]} <b>${step.title}</b> — ${STAGE_HINT[step.stage]}:`);
+      for (const item of step.items) lines.push(`   • ${escapeHtml(item)}`);
+    }
   }
+  lines.push("", escapeHtml(r.conclusion));
+  if (r.reality) lines.push("", `💡 <b>На самом деле:</b> ${escapeHtml(r.reality)}`);
+  if (r.extra.length) lines.push("", "<b>Дополнительно:</b>", ...r.extra.map((e) => `• ${escapeHtml(e)}`));
 
   const risky = v.urls.filter((u) => u.score >= 35);
   if (risky.length) lines.push("", `⛔ Не открывайте: ${risky.map((u) => `<code>${escapeHtml(u.host)}</code>`).join(", ")}`);
@@ -50,13 +59,19 @@ export function verdictJson(v: Verdict) {
   return {
     level: v.level,
     score: v.score,
+    score_note: SCORE_NOTE,
     scheme: v.schemeId === "none" ? null : { id: v.schemeId, name: schemeName(v.schemeId) ?? null },
-    red_flags: v.signals.slice(0, 8).map((s) => ({ text: s.text, source: s.source })),
-    explanation: v.explanation ?? null,
+    reasoning: {
+      summary: v.explanation ?? v.reasoning.summary,
+      manipulation_steps: v.reasoning.chain.map((c) => ({ stage: c.stage, title: c.title, evidence: c.items })),
+      conclusion: v.reasoning.conclusion,
+      reality: v.reasoning.reality ?? null,
+    },
+    red_flags: v.signals.slice(0, 8).map((s) => ({ text: s.text, source: s.source, stage: s.stage ?? null })),
     advice: v.advice,
     urls: v.urls.map((u) => ({ url: u.url, host: u.host, score: u.score })),
     phones: v.phones.map((p) => ({ phone: `+${p.normalized}`, score: p.score })),
     ai_used: v.aiUsed,
-    disclaimer: "Оценка вероятностная и не является гарантией безопасности.",
+    disclaimer: "Оценка по признакам, а не гарантия безопасности.",
   };
 }

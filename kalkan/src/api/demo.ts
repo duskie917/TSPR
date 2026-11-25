@@ -70,9 +70,10 @@ async function check(){
     const v=await r.json(); if(!r.ok) throw new Error(v.error||r.status);
     let h='<div class="verdict '+v.level+'"><h2>'+TITLES[v.level]+'</h2>';
     if(v.scheme&&v.scheme.name) h+='<div>Похоже на схему: <b>'+esc(v.scheme.name)+'</b></div>';
-    h+='<div class="muted">Уровень риска: '+v.score+'/100'+(v.ai_used?' · проверено ИИ':' · проверено по базе схем')+'</div>';
-    if(v.explanation) h+='<p>'+esc(v.explanation)+'</p>';
-    if(v.red_flags.length&&v.level!=="no_signs") h+='<h3>Что настораживает</h3><ul>'+v.red_flags.slice(0,6).map(f=>'<li>'+esc(f.text)+'</li>').join("")+'</ul>';
+    h+='<div class="muted">Уровень риска: '+v.score+'/100 ('+esc(v.score_note)+')'+(v.ai_used?' · проверено ИИ':' · проверено по базе схем')+'</div>';
+    const r=v.reasoning; h+='<h3>Почему я так думаю</h3><p>'+esc(r.summary)+'</p>';
+    if(r.manipulation_steps.length) h+='<ul>'+r.manipulation_steps.map(s=>'<li><b>'+esc(s.title)+':</b> '+s.evidence.map(esc).join('; ')+'</li>').join("")+'</ul>';
+    h+='<p>'+esc(r.conclusion)+'</p>'; if(r.reality) h+='<p><b>На самом деле:</b> '+esc(r.reality)+'</p>';
     if(v.advice.length) h+='<h3>Что делать</h3><ol>'+v.advice.map(a=>'<li>'+esc(a)+'</li>').join("")+'</ol>';
     h+='</div>'; $("#result").innerHTML=h; $("#result").style.display="block"; $("#status").textContent="";
   }catch(e){$("#status").textContent="Ошибка: "+e.message}

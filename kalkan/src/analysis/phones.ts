@@ -45,7 +45,7 @@ export function countryOf(normalized: string): string | undefined {
 export function analyzePhone(raw: string): PhoneFinding {
   const normalized = normalizePhone(raw);
   const signals: Signal[] = [];
-  const add = (text: string, weight: number) => signals.push({ text, weight, source: "phone" });
+  const add = (text: string, weight: number) => signals.push({ text, weight, source: "phone", stage: "trust" });
 
   if (normalized.startsWith("996")) {
     if (normalized.length !== 12) add("Номер в неправильном формате для Кыргызстана", 10);
@@ -53,7 +53,7 @@ export function analyzePhone(raw: string): PhoneFinding {
     const country = countryOf(normalized);
     add(
       country
-        ? `Номер зарегистрирован не в Кыргызстане (${country}). Банки КР звонят с местных номеров`
+        ? `Номер не кыргызстанский (${country})`
         : "Номер с иностранным или неизвестным кодом страны",
       15,
     );

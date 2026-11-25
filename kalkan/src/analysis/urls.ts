@@ -49,7 +49,12 @@ const MULTI_PART_SUFFIXES = new Set([
 
 const PATH_BAIT = /login|signin|verif|bonus|kompens|vyplat|viplat|credit|kredit|prize|gift|wallet|card|secure|confirm|unblock|payout|vote|golos/i;
 
-/** Finds http(s) links and bare domains like "nbkr-credit.top/form". */
+/** Parses a link that may be written without a scheme ("site.kg/page"). */
+export function toUrl(raw: string): URL {
+  return new URL(/^https?:\/\//i.test(raw) ? raw : `http://${raw}`);
+}
+
+/** Finds http(s) links and bare domains like "nbkr-credit.top/form" (returned as written). */
 export function extractUrls(text: string): string[] {
   const found = new Set<string>();
   const re = /\b((?:https?:\/\/)?(?:[a-z0-9Ѐ-ӿ-]+\.)+(?:[a-zЀ-ӿ]{2,24}|xn--[a-z0-9-]+)(?::\d+)?(?:\/[^\s<>"'«»)]*)?)/giu;
@@ -64,7 +69,6 @@ export function extractUrls(text: string): string[] {
       const tld = (candidate.split("/")[0] ?? "").split(".").pop() ?? "";
       // Bare words must end in a plausible TLD to count as a link.
       if (!/^[a-z]{2,24}$|^xn--/.test(tld.toLowerCase()) && !/^рф$/.test(tld)) continue;
-      candidate = `http://${candidate}`;
     }
     found.add(candidate);
   }
@@ -116,11 +120,11 @@ function isOfficial(host: string, domains: string[]): boolean {
 /** Synchronous heuristics. Safe Browsing / community reports are layered on in the engine. */
 export function analyzeUrl(raw: string): UrlFinding {
   const signals: Signal[] = [];
-  const add = (text: string, weight: number) => signals.push({ text, weight, source: "url" });
+  const add = (text: string, weight: number, stage?: Signal["stage"]) => signals.push({ text, weight, source: "url", stage });
 
   let url: URL;
   try {
-    url = new URL(raw);
+    url = toUrl(raw);
   } catch {
     return { url: raw, host: raw, score: 10, signals: [{ text: "Некорректная ссылка", weight: 10, source: "url" }] };
   }
@@ -142,7 +146,7 @@ export function analyzeUrl(raw: string): UrlFinding {
     // Brand name inside an unofficial domain: "mbank-bonus.top", "nbkr.credit-kg.com".
     const brand = BRANDS.find((b) => labels.some((l) => tokenMatch(l, b.token)));
     if (brand) {
-      add(`Адрес выдает себя за ${brand.name}, но это не официальный сайт (${brand.domains[0]})`, 60);
+      add(`Адрес выдает себя за ${brand.name}, но это не официальный сайт (${brand.domains[0]})`, 60, "trust");
     } else {
       // Typosquatting: "rnbank.kg", "optimabamk.kg", "0ptimabank.kg".
       const regLabel = reg.split(".")[0] ?? "";
@@ -153,7 +157,7 @@ export function analyzeUrl(raw: string): UrlFinding {
           const allowed = officialLabel.length >= 8 ? 2 : 1;
           const distance = levenshtein(regLabel, officialLabel);
           if (unconfuse(regLabel) === officialLabel || (distance > 0 && distance <= allowed)) {
-            add(`Адрес очень похож на ${domain}, но это другой сайт`, 55);
+            add(`Адрес очень похож на ${domain}, но это другой сайт`, 55, "trust");
             break outer;
           }
         }
@@ -165,7 +169,7 @@ export function analyzeUrl(raw: string): UrlFinding {
   if (host === "t.me" || host === "telegram.me") {
     const handle = (url.pathname.split("/")[1] ?? "").toLowerCase();
     const brand = BRANDS.find((b) => b.token !== "telegram" && handle.includes(b.token));
-    if (brand) add(`Telegram-аккаунт «${handle}» выдает себя за ${brand.name}`, 45);
+    if (brand) add(`Telegram-аккаунт «${handle}» выдает себя за ${brand.name}`, 45, "trust");
     else if (/kredit|credit|vyplat|bonus|kompens|invest|zarabot|prize/.test(handle)) {
       add(`Telegram-аккаунт «${handle}» с «денежным» названием`, 15);
     }

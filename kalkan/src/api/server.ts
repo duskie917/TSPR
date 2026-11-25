@@ -4,7 +4,7 @@ import { verdictJson } from "../analysis/format.ts";
 import { normalizePhone } from "../analysis/phones.ts";
 import { schemeName } from "../analysis/schemes.ts";
 import type { CheckInput } from "../analysis/types.ts";
-import { extractUrls, registrableDomain } from "../analysis/urls.ts";
+import { extractUrls, registrableDomain, toUrl } from "../analysis/urls.ts";
 import type { Store } from "../storage/db.ts";
 import { DEMO_HTML } from "./demo.ts";
 
@@ -125,7 +125,7 @@ export function createApi({ engine, store, demo }: ApiDeps): Server {
       for (const p of phones) if (normalizePhone(p).length >= 9 && store.addReport("phone", normalizePhone(p), -tenant.id)) added++;
       for (const d of domains) {
         const u = extractUrls(d)[0];
-        if (u && store.addReport("domain", registrableDomain(new URL(u).hostname), -tenant.id)) added++;
+        if (u && store.addReport("domain", registrableDomain(toUrl(u).hostname), -tenant.id)) added++;
       }
       return send(res, 200, { added });
     }

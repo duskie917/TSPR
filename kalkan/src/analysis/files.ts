@@ -13,7 +13,7 @@ export interface FileFinding {
 
 export function analyzeFile(file: FileInfo): FileFinding {
   const signals: Signal[] = [];
-  const add = (text: string, weight: number) => signals.push({ text, weight, source: "file" });
+  const add = (text: string, weight: number) => signals.push({ text, weight, source: "file", stage: "action" });
   const name = (file.name ?? "").toLowerCase().trim();
   const parts = name.split(".");
   const ext = parts.length > 1 ? (parts.pop() ?? "") : "";

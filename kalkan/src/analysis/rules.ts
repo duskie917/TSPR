@@ -1,4 +1,4 @@
-import { GENERIC_PATTERNS, SCHEMES } from "./schemes.ts";
+import { GENERIC_PATTERNS, SCHEMES, type Pattern } from "./schemes.ts";
 import { clamp, type SchemeMatch, type Signal } from "./types.ts";
 
 export function normalizeText(text: string): string {
@@ -42,11 +42,11 @@ export function analyzeRules(text: string): RulesResult {
   const schemes: SchemeMatch[] = [];
   for (const scheme of SCHEMES) {
     let score = 0;
-    const matched: string[] = [];
+    const matched: { label: string; stage: Pattern["stage"] }[] = [];
     for (const pattern of scheme.patterns) {
       if (pattern.re.test(norm)) {
         score += pattern.weight;
-        matched.push(pattern.label);
+        matched.push({ label: pattern.label, stage: pattern.stage });
       }
     }
     // A single weak pattern is not enough to name a scheme.
@@ -55,13 +55,20 @@ export function analyzeRules(text: string): RulesResult {
     }
   }
   schemes.sort((a, b) => b.score - a.score);
+  // "Code from SMS" is the tool, not the story: when a more specific scheme also
+  // matches (bank, operator, police...), name that one.
+  const [first, second] = schemes;
+  if (first?.id === "sms_code_request" && second && second.matched.length >= 2) {
+    schemes[0] = second;
+    schemes[1] = first;
+  }
 
   const signals: Signal[] = [];
   for (const pattern of GENERIC_PATTERNS) {
-    if (pattern.re.test(norm)) signals.push({ text: pattern.label, weight: pattern.weight, source: "rules" });
+    if (pattern.re.test(norm)) signals.push({ text: pattern.label, weight: pattern.weight, source: "rules", stage: pattern.stage });
   }
   if (obfuscated) {
-    signals.push({ text: "Буквы в словах подменены латиницей — так обходят фильтры", weight: 20, source: "rules" });
+    signals.push({ text: "Буквы в словах подменены латиницей — так обходят фильтры", weight: 20, source: "rules", stage: "trust" });
   }
   return { schemes, signals, obfuscated };
 }

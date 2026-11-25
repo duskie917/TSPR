@@ -1,4 +1,5 @@
 import type { AiAnalyzer } from "./ai.ts";
+import { buildReasoning } from "./explain.ts";
 import { analyzeFile, virusTotalLookup } from "./files.ts";
 import { analyzePhone, extractPhones } from "./phones.ts";
 import { analyzeRules } from "./rules.ts";
@@ -77,6 +78,11 @@ export class Engine {
       }
     }
 
+    // The link itself is the "dangerous request"; its technical details go to "extra".
+    const linkSignals: Signal[] = urls.some((u) => u.score >= 35)
+      ? [{ text: "Ведут на подозрительный сайт", weight: 0, source: "url", stage: "action" }]
+      : [];
+
     // 3. Phone numbers.
     const rawPhones = [...extractPhones(input.text ?? ""), ...(input.phone ? [input.phone] : [])];
     const phones = [...new Map(rawPhones.map((p) => analyzePhone(p)).map((p) => [p.normalized, p])).values()].slice(0, 5);
@@ -126,14 +132,17 @@ export class Engine {
     const officialContext = topScheme && ["fake_nbkr_credit", "bank_security_call", "police_impersonation", "state_payout"].includes(topScheme.id);
     const extraSignals: Signal[] = [];
     if (officialContext && phones.some((p) => !p.normalized.startsWith("996"))) {
-      extraSignals.push({ text: "«Официальная» организация с иностранного номера", weight: 15, source: "phone" });
+      extraSignals.push({ text: "«Официальная» организация пишет или звонит с иностранного номера", weight: 15, source: "phone", stage: "trust" });
       score = clamp(score + 15);
     }
 
     const signals: Signal[] = [
-      ...(topScheme?.matched.map((t) => ({ text: t, weight: 30, source: "rules" as const })) ?? []),
+      ...rules.schemes.slice(0, 3).flatMap((s, i) =>
+        s.matched.map((m) => ({ text: m.label, weight: i === 0 ? 30 : 20, source: "rules" as const, stage: m.stage })),
+      ),
       ...rules.signals,
       ...extraSignals,
+      ...linkSignals,
       ...urls.flatMap((u) => u.signals),
       ...phones.flatMap((p) => p.signals),
       ...fileSignals,
@@ -176,14 +185,19 @@ export class Engine {
     const schemeAdvice = SCHEME_BY_ID.get(schemeId)?.advice ?? [];
     // Scheme advice already covers "what if I already paid"; add only the general first rule to it.
     const fallback = schemeAdvice.length ? DEFAULT_ADVICE[level].slice(0, 1) : DEFAULT_ADVICE[level];
-    const advice = dedupe(aiAdvice.length ? aiAdvice : [...schemeAdvice, ...fallback]).slice(0, 4);
+    const reasoning = buildReasoning({ level, schemeId, signals: dedupeSignals(signals) });
+    // Skip advice that only repeats the «На самом деле» fact.
+    const repeatsReality = (a: string) => Boolean(reasoning.reality) && overlap(a, reasoning.reality!) >= 0.6;
+    const advice = dedupe(aiAdvice.length ? aiAdvice : [...schemeAdvice.filter((a) => !repeatsReality(a)), ...fallback]).slice(0, 4);
 
+    const finalSignals = dedupeSignals(signals).sort((a, b) => b.weight - a.weight);
     return {
       level,
       score,
       schemeId,
-      signals: dedupeSignals(signals).sort((a, b) => b.weight - a.weight),
+      signals: finalSignals,
       explanation,
+      reasoning,
       advice,
       urls,
       phones,
@@ -191,6 +205,14 @@ export class Engine {
       aiError,
     };
   }
+}
+
+/** Share of the first text's words that also appear in the second. */
+function overlap(a: string, b: string): number {
+  const words = (s: string) => s.toLowerCase().match(/[\p{L}]{4,}/gu) ?? [];
+  const wa = words(a);
+  const wb = new Set(words(b));
+  return wa.length ? wa.filter((w) => wb.has(w)).length / wa.length : 0;
 }
 
 function dedupe(items: string[]): string[] {
