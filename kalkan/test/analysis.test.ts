@@ -31,7 +31,8 @@ const SCAMS: [string, string, string][] = [
   ["fake_job", "Работа на дому! Ставить лайки и писать отзывы, 2000 сом в день. Чтобы начать, внесите депозит 500 сом.", "danger"],
   ["marketplace_scam", "Я купил ваш товар на Lalafo. Чтобы получить оплату по ссылке, введите данные карты: lalafo-pay.top/deal", "danger"],
   ["account_takeover", "Привет! Проголосуй пожалуйста за мою племянницу в конкурсе, там нужно подтвердить номер telegram-vote.xyz", "danger"],
-  ["investment_scam", "Инвестиции в крипту! Гарантированный доход 5% в день без риска. Ваш личный куратор ждет.", "danger"],
+  ["phishing_site", "Ваша карта заблокирована. Войдите для разблокировки: https://mbank-secure.top/login", "danger"],
+  ["investment_scam","Инвестиции в крипту! Гарантированный доход 5% в день без риска. Ваш личный куратор ждет.", "danger"],
 ];
 
 for (const [scheme, text, level] of SCAMS) {

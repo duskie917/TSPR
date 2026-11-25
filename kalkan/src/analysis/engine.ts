@@ -167,6 +167,9 @@ export class Engine {
     }
 
     const level = levelFor(score);
+    if ((schemeId === "none" || schemeId === "other") && level !== "no_signs" && urls.some((u) => u.score >= 60)) {
+      schemeId = "phishing_site";
+    }
     if (schemeId === "none" && level !== "no_signs") schemeId = "other";
     if (level === "no_signs") schemeId = "none";
 
