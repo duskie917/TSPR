@@ -1,6 +1,6 @@
-import type { Stage } from "./schemes.ts";
+import type { SignalTag, Stage } from "./schemes.ts";
 
-export type { Stage };
+export type { SignalTag, Stage };
 
 /** 0–100. Higher means more likely to be fraud. */
 export type RiskScore = number;
@@ -20,12 +20,13 @@ export interface Signal {
   source: "rules" | "url" | "phone" | "file" | "ai" | "reports" | "safe_browsing" | "virustotal";
   /** Which step of the manipulation this signal belongs to, when it is one. */
   stage?: Stage;
+  tag?: SignalTag;
 }
 
 export interface SchemeMatch {
   id: string;
   score: RiskScore;
-  matched: { label: string; stage: Stage }[];
+  matched: { label: string; stage: Stage; tag?: SignalTag }[];
 }
 
 export interface UrlFinding {
@@ -55,6 +56,10 @@ export interface AiAssessment {
   redFlags: string[];
   explanation: string;
   advice: string[];
+  /** Information a legitimate sender would give but the message lacks. */
+  missing?: string[];
+  /** What the user should check independently. */
+  verify?: string[];
 }
 
 export interface ReasoningStep {
@@ -75,6 +80,12 @@ export interface Reasoning {
   reality?: string;
   /** Evidence outside the text: reports, Safe Browsing, VirusTotal, technical link details. */
   extra: string[];
+  /** What the sender is probably after, and the harm if the user complies. */
+  intent: { goal: string; harm: string }[];
+  /** Information a legitimate sender would give but this message lacks. */
+  missing: string[];
+  /** What the user should check independently before doing anything. */
+  verify: string[];
 }
 
 export interface CheckInput {

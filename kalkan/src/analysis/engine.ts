@@ -138,7 +138,7 @@ export class Engine {
 
     const signals: Signal[] = [
       ...rules.schemes.slice(0, 3).flatMap((s, i) =>
-        s.matched.map((m) => ({ text: m.label, weight: i === 0 ? 30 : 20, source: "rules" as const, stage: m.stage })),
+        s.matched.map((m) => ({ text: m.label, weight: i === 0 ? 30 : 20, source: "rules" as const, stage: m.stage, tag: m.tag })),
       ),
       ...rules.signals,
       ...extraSignals,
@@ -148,11 +148,37 @@ export class Engine {
       ...fileSignals,
     ];
 
+    // A forwarded warning about scammers is not a scam, unless it carries a risky
+    // link, a reported/foreign number or a file.
+    const awareness = rules.awareness && !urls.some((u) => u.score >= 35) && !phones.some((p) => p.score >= 35) && !input.file;
+    if (awareness) {
+      score = 0;
+      for (const s of signals) {
+        if (s.source === "rules") {
+          s.stage = undefined;
+          s.weight = 0;
+        }
+      }
+      signals.length = 0;
+      signals.push({ text: "Похоже на предупреждение о мошенниках, а не на само мошенничество: в тексте нет просьб к вам", weight: 0, source: "rules" });
+    }
+
+    // Combinations matter more than single words: a message can steal documents
+    // without asking for money, codes or clicks. Count the manipulation steps that
+    // have real evidence (weak hints such as a big name alone do not count).
+    const stagesFound = new Set(signals.filter((s) => s.stage && (s.weight >= 10 || s.source === "url")).map((s) => s.stage));
+    const actionFound = stagesFound.has("action");
+    if (stagesFound.size >= 4) score = Math.max(score, 75);
+    else if (stagesFound.size === 3 && actionFound) score = Math.max(score, 60);
+    else if (stagesFound.size === 2 && actionFound) score = Math.max(score, 40);
+
     // 6. AI second opinion. It can raise the risk but never lower what the rules found:
     // a scam message may contain text designed to talk the model out of flagging it.
     let schemeId = topScheme?.id ?? "none";
     let explanation: string | undefined;
     let aiAdvice: string[] = [];
+    let aiMissing: string[] = [];
+    let aiVerify: string[] = [];
     let aiUsed = false;
     let aiError: string | undefined;
     const hasContent = Boolean(input.text?.trim() || input.image || input.file || input.phone);
@@ -165,6 +191,8 @@ export class Engine {
         if (ai.schemeId !== "none" && (!topScheme || topScheme.score < 60)) schemeId = ai.schemeId;
         explanation = ai.explanation;
         aiAdvice = ai.advice;
+        aiMissing = ai.missing ?? [];
+        aiVerify = ai.verify ?? [];
         const known = new Set(signals.map((s) => s.text.toLowerCase()));
         for (const flag of ai.redFlags) {
           if (!known.has(flag.toLowerCase())) signals.push({ text: flag, weight: 20, source: "ai" });
@@ -179,6 +207,9 @@ export class Engine {
     if ((schemeId === "none" || schemeId === "other") && level !== "no_signs" && urls.some((u) => u.score >= 60)) {
       schemeId = "phishing_site";
     }
+    if ((schemeId === "none" || schemeId === "other") && level !== "no_signs" && signals.some((s) => s.tag === "personal_data")) {
+      schemeId = "data_harvest";
+    }
     if (schemeId === "none" && level !== "no_signs") schemeId = "other";
     if (level === "no_signs") schemeId = "none";
 
@@ -186,9 +217,15 @@ export class Engine {
     // Scheme advice already covers "what if I already paid"; add only the general first rule to it.
     const fallback = schemeAdvice.length ? DEFAULT_ADVICE[level].slice(0, 1) : DEFAULT_ADVICE[level];
     const reasoning = buildReasoning({ level, schemeId, signals: dedupeSignals(signals) });
+    if (level !== "no_signs") reasoning.missing = dedupe([...reasoning.missing, ...aiMissing]).slice(0, 4);
+    reasoning.verify = dedupe([...reasoning.verify, ...aiVerify]).slice(0, 4);
     // Skip advice that only repeats the «На самом деле» fact.
     const repeatsReality = (a: string) => Boolean(reasoning.reality) && overlap(a, reasoning.reality!) >= 0.6;
-    const advice = dedupe(aiAdvice.length ? aiAdvice : [...schemeAdvice.filter((a) => !repeatsReality(a)), ...fallback]).slice(0, 4);
+    // ...and advice already listed under «Что проверить самостоятельно».
+    const repeatsVerify = (a: string) => reasoning.verify.some((v) => overlap(a, v) >= 0.5);
+    const advice = dedupe(aiAdvice.length ? aiAdvice : [...schemeAdvice.filter((a) => !repeatsReality(a)), ...fallback])
+      .filter((a) => !repeatsVerify(a))
+      .slice(0, 4);
 
     const finalSignals = dedupeSignals(signals).sort((a, b) => b.weight - a.weight);
     return {

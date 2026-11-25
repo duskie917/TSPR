@@ -170,3 +170,36 @@ test("reasoning explains the manipulation chain", async () => {
   assert.equal(calm.reasoning.chain.length, 0);
   assert.match(calm.reasoning.conclusion, /приемов манипуляции нет/);
 });
+
+const FORUM =
+  "Здравствуйте! Ваш контакт нам передали коллеги. Приглашаем вас принять участие в Международном молодежном форуме лидеров в Стамбуле. Участие бесплатное, организаторы оплачивают проживание и перелет. Для регистрации пришлите, пожалуйста, копию паспорта. Просим ответить сегодня, количество мест ограничено.";
+
+test("opportunity + passport request is flagged without any money, code or link", async () => {
+  const v = await engine.check({ text: FORUM });
+  assert.equal(v.level, "danger");
+  assert.equal(v.schemeId, "opportunity_scam");
+  assert.deepEqual(v.reasoning.chain.map((c) => c.stage), ["trust", "bait", "urgency", "action"]);
+  assert.match(v.reasoning.intent[0]!.goal, /паспорт/);
+  assert.ok(v.reasoning.missing.some((m) => /организатор/i.test(m)), "names the missing organizer");
+  assert.ok(v.reasoning.verify.some((m) => /коллег/i.test(m)), "suggests checking with colleagues");
+});
+
+test("organizer with a site is not reported as unverifiable", async () => {
+  const v = await engine.check({ text: `${FORUM} Подробности на сайте leadersforum.org` });
+  assert.ok(!v.signals.some((s) => s.tag === "unverified_org"));
+});
+
+test("documents via an official channel are not an attack", async () => {
+  const v = await engine.check({ text: "Для открытия счета возьмите с собой паспорт и приходите в любое отделение банка." });
+  assert.equal(v.level, "no_signs");
+  assert.equal(v.reasoning.chain.length, 0);
+});
+
+test("a forwarded warning is not fraud, but a scam posing as a warning is", async () => {
+  const warning = await engine.check({ text: "Мошенники звонят от имени банка и просят код из СМС. Никогда не сообщайте коды." });
+  assert.equal(warning.level, "no_signs");
+  const disguised = await engine.check({
+    text: "Внимание, мошенники! Служба безопасности банка: с вашей карты пытаются списать деньги. Срочно переведите их на безопасный счет и никому не говорите.",
+  });
+  assert.equal(disguised.level, "danger");
+});

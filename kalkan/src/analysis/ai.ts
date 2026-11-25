@@ -17,6 +17,8 @@ const AssessmentSchema = z.object({
   red_flags: z.array(z.string()),
   explanation: z.string(),
   advice: z.array(z.string()),
+  missing_info: z.array(z.string()),
+  verify: z.array(z.string()),
 });
 
 /** JSON schema for structured outputs (kept by hand so it matches the API's supported subset). */
@@ -28,8 +30,10 @@ const OUTPUT_SCHEMA = {
     red_flags: { type: "array", items: { type: "string" } },
     explanation: { type: "string" },
     advice: { type: "array", items: { type: "string" } },
+    missing_info: { type: "array", items: { type: "string" } },
+    verify: { type: "array", items: { type: "string" } },
   },
-  required: ["risk", "scheme_id", "red_flags", "explanation", "advice"],
+  required: ["risk", "scheme_id", "red_flags", "explanation", "advice", "missing_info", "verify"],
   additionalProperties: false,
 };
 
@@ -50,6 +54,10 @@ ${schemesCatalogue()}
 - red_flags: 0–5 коротких признаков (до 12 слов каждый), только то, что реально есть в материале.
 - explanation: 1–3 предложения, объясни логику: кем притворяются, чем пугают или манят и к какому действию подталкивают — и почему это опасно (или почему признаков нет).
 - advice: 2–4 конкретных шага, что делать сейчас. Если человек мог уже пострадать (назвал код, перевел деньги, установил приложение) — первым шагом «срочно позвоните в банк и заблокируйте карту». Для сообщения в полицию — номер 102.
+- Оценивай не только слова, но и намерение отправителя и возможный вред для получателя. Сообщение может не содержать ни ссылки, ни просьбы о деньгах или кодах, но пытаться получить паспорт, ПИН, фото документов или адрес — это тоже опасно (кредиты и фирмы на чужое имя). Особенно в сочетании с привлекательным предложением (форум, грант, стипендия, работа за границей), ссылкой на «коллег» или «знакомых», сроком «ответить сегодня» и отсутствием названия организатора.
+- Не считай мошенничеством любой запрос документов: банк в отделении или приложении, госпортал, отдел кадров или деканат с понятной целью — это нормально. Отличай официальный канал от личного сообщения незнакомца.
+- missing_info: 0–4 пункта — что настоящий отправитель обязательно указал бы, но здесь этого нет (название организации, сайт, контакты, имя рекомендателя, цель сбора данных).
+- verify: 0–4 пункта — что пользователь должен проверить сам и как (найти организацию через поиск, позвонить по официальному номеру, спросить знакомого напрямую).
 - Не придумывай номера телефонов и адреса сайтов организаций.`;
 
 function buildUserText(input: CheckInput, findings: string): string {
@@ -106,6 +114,8 @@ export class ClaudeAnalyzer implements AiAnalyzer {
       redFlags: parsed.red_flags.slice(0, 5),
       explanation: parsed.explanation,
       advice: parsed.advice.slice(0, 4),
+      missing: parsed.missing_info.slice(0, 4),
+      verify: parsed.verify.slice(0, 4),
     };
   }
 }

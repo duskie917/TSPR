@@ -17,6 +17,8 @@ export const SCORE_NOTE = "оценка по признакам, а не вер�
 
 const STAGE_ICON: Record<Stage, string> = { trust: "🎭", bait: "🎣", urgency: "⏱", action: "💸" };
 
+const capitalize = (s: string) => s.charAt(0).toUpperCase() + s.slice(1);
+
 /** Telegram HTML message for a verdict. */
 export function formatVerdict(v: Verdict): string {
   const r = v.reasoning;
@@ -36,6 +38,11 @@ export function formatVerdict(v: Verdict): string {
   lines.push("", escapeHtml(r.conclusion));
   if (r.reality) lines.push("", `💡 <b>На самом деле:</b> ${escapeHtml(r.reality)}`);
   if (r.extra.length) lines.push("", "<b>Дополнительно:</b>", ...r.extra.map((e) => `• ${escapeHtml(e)}`));
+  if (r.intent.length) {
+    lines.push("", "🎯 <b>Что может быть целью:</b>", ...r.intent.map((i) => `• ${escapeHtml(capitalize(i.goal))}. ${escapeHtml(i.harm)}`));
+  }
+  if (r.missing.length) lines.push("", "❓ <b>Чего не хватает в сообщении:</b>", ...r.missing.map((m) => `• ${escapeHtml(m)}`));
+  if (r.verify.length) lines.push("", "🔍 <b>Что проверить самостоятельно:</b>", ...r.verify.map((m) => `• ${escapeHtml(m)}`));
 
   const risky = v.urls.filter((u) => u.score >= 35);
   if (risky.length) lines.push("", `⛔ Не открывайте: ${risky.map((u) => `<code>${escapeHtml(u.host)}</code>`).join(", ")}`);
@@ -66,6 +73,9 @@ export function verdictJson(v: Verdict) {
       manipulation_steps: v.reasoning.chain.map((c) => ({ stage: c.stage, title: c.title, evidence: c.items })),
       conclusion: v.reasoning.conclusion,
       reality: v.reasoning.reality ?? null,
+      intent: v.reasoning.intent,
+      missing_information: v.reasoning.missing,
+      verify_yourself: v.reasoning.verify,
     },
     red_flags: v.signals.slice(0, 8).map((s) => ({ text: s.text, source: s.source, stage: s.stage ?? null })),
     advice: v.advice,
