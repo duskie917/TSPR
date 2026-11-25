@@ -6,6 +6,8 @@ geopolitics, energy security, foreign policy and regional economics.
 This repository is the MVP website: a fast static site built with [Astro](https://astro.build),
 with articles written in Markdown.
 
+> **Also in this repository:** [`kalkan/`](kalkan/README.md) — «Калкан», an anti-fraud Telegram bot MVP (separate Node project).
+
 ## Features
 
 - **Article feed and reader pages**: a long-form reading layout with topic and country tags, reading time, an author box and related articles
