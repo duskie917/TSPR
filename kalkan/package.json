@@ -1,0 +1,29 @@
+{
+  "name": "kalkan",
+  "description": "Калкан — антифрод Telegram-бот: проверка подозрительных сообщений, ссылок, номеров и файлов",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "start": "node --disable-warning=ExperimentalWarning --import tsx src/index.ts",
+    "dev": "node --disable-warning=ExperimentalWarning --watch --import tsx src/index.ts",
+    "check": "node --disable-warning=ExperimentalWarning --import tsx src/cli/check.ts",
+    "eval": "node --disable-warning=ExperimentalWarning --import tsx src/cli/eval.ts",
+    "tenant:create": "node --disable-warning=ExperimentalWarning --import tsx src/cli/tenant.ts",
+    "test": "node --disable-warning=ExperimentalWarning --import tsx --test test/*.test.ts",
+    "typecheck": "tsc --noEmit"
+  },
+  "engines": {
+    "node": ">=22.13"
+  },
+  "dependencies": {
+    "@anthropic-ai/sdk": "^1.14.0",
+    "grammy": "^1.48.0",
+    "zod": "^4.6.7"
+  },
+  "devDependencies": {
+    "@types/node": "^22.20.7",
+    "tsx": "^4.23.15",
+    "typescript": "^7.0.2"
+  }
+}
