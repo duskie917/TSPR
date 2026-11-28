@@ -1,0 +1,468 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="description" content="Калкан — антифрод-помощник для студентов и молодёжи Кыргызстана: проверка подозрительных сообщений.">
+<title>Калкан</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Golos+Text:wght@400;500;600&family=Unbounded:wght@500;700&display=swap">
+<style>
+/* Layout: a working demo — the bot conversation is the hero; how-it-works and family alert sit beside it on wide screens, below it on phones. */
+:root {
+  --bg: #eef2f7;          /* cool mountain-sky neutral */
+  --surface: #ffffff;
+  --sunken: #e3e9f1;
+  --ink: #142235;
+  --muted: #5a6a80;
+  --line: #d3dbe6;
+  --accent: #1f4f8f;      /* deep shield blue */
+  --accent-ink: #ffffff;
+  --bubble-me: #dbe8f8;
+  --danger: #b3261e; --danger-bg: #fbe9e7;
+  --warn: #9a5800;  --warn-bg: #fdf0dc;
+  --ok: #2b6a3c;    --ok-bg: #e5f3e8;
+  --display: "Unbounded", "Golos Text", system-ui, sans-serif;
+  --body: "Golos Text", system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+}
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) {
+  --bg: #0d1420; --surface: #152031; --sunken: #0f1928; --ink: #e6edf6; --muted: #93a3b8; --line: #26354a;
+  --accent: #6fa3e8; --accent-ink: #0b1524; --bubble-me: #1d3352;
+  --danger: #ff8a80; --danger-bg: #2d1517; --warn: #ffb860; --warn-bg: #2b2012; --ok: #7fd194; --ok-bg: #12251a;
+  color-scheme: dark; } }
+:root[data-theme="dark"] {
+  --bg: #0d1420; --surface: #152031; --sunken: #0f1928; --ink: #e6edf6; --muted: #93a3b8; --line: #26354a;
+  --accent: #6fa3e8; --accent-ink: #0b1524; --bubble-me: #1d3352;
+  --danger: #ff8a80; --danger-bg: #2d1517; --warn: #ffb860; --warn-bg: #2b2012; --ok: #7fd194; --ok-bg: #12251a;
+  color-scheme: dark; }
+
+* { box-sizing: border-box; }
+body { background: var(--bg); color: var(--ink); font: 16px/1.5 var(--body); }
+.wrap { max-width: 1080px; margin: 0 auto; padding-block: 32px 56px;
+  padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); }
+header { display: flex; gap: 16px; align-items: center; margin-bottom: 24px; }
+.mark { width: 48px; height: 48px; flex: none; }
+h1 { font: 700 30px/1.1 var(--display); margin: 0; letter-spacing: -0.01em; }
+.tag { margin: 4px 0 0; color: var(--muted); max-width: 60ch; text-wrap: pretty; }
+
+.grid { display: grid; grid-template-columns: minmax(0, 1.35fr) minmax(0, 1fr); gap: 24px; align-items: start; }
+@media (max-width: 860px) { .grid { grid-template-columns: minmax(0, 1fr); } }
+
+/* chat */
+.chat { background: var(--surface); border: 1px solid var(--line); border-radius: 16px; display: flex; flex-direction: column; min-width: 0; }
+.chat-head { display: flex; align-items: center; gap: 12px; padding: 12px 16px; border-bottom: 1px solid var(--line); }
+.avatar { width: 36px; height: 36px; border-radius: 50%; background: var(--accent); display: grid; place-items: center; flex: none; }
+.avatar svg { width: 20px; height: 20px; }
+.chat-head b { display: block; font-weight: 600; }
+.chat-head span { font-size: 13px; color: var(--muted); }
+.log { padding: 16px; display: flex; flex-direction: column; gap: 12px; min-height: 420px; max-height: 640px; overflow-y: auto; background: var(--sunken); }
+.msg { max-width: 88%; padding: 10px 14px; border-radius: 14px; white-space: pre-wrap; overflow-wrap: anywhere; font-size: 15px; }
+.me { align-self: flex-end; background: var(--bubble-me); border-bottom-right-radius: 4px; }
+.me .fwd { display: block; font-size: 12px; color: var(--accent); margin-bottom: 2px; }
+.bot { align-self: flex-start; background: var(--surface); border: 1px solid var(--line); border-bottom-left-radius: 4px; white-space: normal; }
+.bot.typing { color: var(--muted); font-style: italic; }
+.verdict-title { font-weight: 600; display: flex; gap: 8px; align-items: baseline; }
+.dot { width: 10px; height: 10px; border-radius: 50%; flex: none; transform: translateY(1px); }
+.lv-danger .dot { background: var(--danger); } .lv-danger .verdict-title { color: var(--danger); }
+.lv-suspicious .dot { background: var(--warn); } .lv-suspicious .verdict-title { color: var(--warn); }
+.lv-no_signs .dot { background: var(--ok); } .lv-no_signs .verdict-title { color: var(--ok); }
+.meter { height: 6px; border-radius: 3px; background: var(--sunken); margin: 8px 0 4px; overflow: hidden; }
+.meter i { display: block; height: 100%; border-radius: 3px; }
+.lv-danger .meter i { background: var(--danger); } .lv-suspicious .meter i { background: var(--warn); } .lv-no_signs .meter i { background: var(--ok); }
+.score { font-size: 13px; color: var(--muted); font-variant-numeric: tabular-nums; }
+.bot h4 { margin: 12px 0 4px; font-size: 14px; }
+.bot ul, .bot ol { margin: 0; padding-left: 20px; font-size: 14px; }
+.bot code { font-size: 13px; background: var(--sunken); padding: 1px 5px; border-radius: 4px; }
+.note { font-size: 13px; color: var(--muted); margin-top: 10px; font-style: italic; }
+.btns { display: flex; gap: 6px; margin-top: 10px; flex-wrap: wrap; }
+.btns span { font-size: 13px; border: 1px solid var(--line); border-radius: 8px; padding: 4px 10px; color: var(--accent); }
+
+.composer { display: flex; gap: 8px; padding: 12px; border-top: 1px solid var(--line); align-items: flex-end; }
+.composer textarea { flex: 1; min-width: 0; resize: none; height: 64px; border: 1px solid var(--line); border-radius: 12px; padding: 10px 12px;
+  font: 15px/1.4 var(--body); background: var(--bg); color: var(--ink); }
+.composer textarea:focus-visible, button:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+button { font: inherit; cursor: pointer; }
+.send { background: var(--accent); color: var(--accent-ink); border: 0; border-radius: 12px; padding: 0 18px; height: 44px; font-weight: 600; }
+.chips { display: flex; flex-wrap: wrap; gap: 8px; padding: 0 12px 14px; }
+.chips button { background: transparent; border: 1px solid var(--line); color: var(--ink); border-radius: 999px; padding: 5px 12px; font-size: 13px; }
+.chips button:hover { border-color: var(--accent); color: var(--accent); }
+
+/* side */
+aside { display: flex; flex-direction: column; gap: 24px; min-width: 0; }
+.panel h2 { font: 500 15px/1.3 var(--display); margin: 0 0 12px; letter-spacing: 0.01em; }
+.steps { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 12px; }
+.steps li { display: grid; grid-template-columns: 28px minmax(0, 1fr); gap: 10px; font-size: 15px; }
+.steps .n { width: 28px; height: 28px; border-radius: 50%; border: 1px solid var(--line); display: grid; place-items: center; font-size: 13px; color: var(--muted); font-variant-numeric: tabular-nums; }
+.levels { display: flex; flex-direction: column; gap: 8px; font-size: 14px; }
+.levels div { display: flex; gap: 10px; align-items: baseline; }
+.levels .dot.r { background: var(--danger); } .levels .dot.y { background: var(--warn); } .levels .dot.g { background: var(--ok); }
+.levels p { margin: 6px 0 0; color: var(--muted); font-size: 13px; }
+.phone { background: var(--surface); border: 1px solid var(--line); border-radius: 16px; padding: 14px; }
+.notif { background: var(--sunken); border-radius: 12px; padding: 12px 14px; font-size: 14px; }
+.notif .from { font-size: 12px; color: var(--muted); margin-bottom: 4px; display: flex; justify-content: space-between; }
+.phone .cap { font-size: 13px; color: var(--muted); margin: 10px 2px 0; }
+.think-title { font-weight: 600; margin-bottom: 6px; display: flex; gap: 8px; align-items: center; }
+.think { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 6px; font-size: 14px; }
+.think li { display: grid; grid-template-columns: 18px minmax(0, 1fr); gap: 8px; color: var(--muted); }
+.think li.done, .think li.run { color: var(--ink); }
+.think .ic { width: 16px; height: 16px; margin-top: 2px; border-radius: 50%; border: 2px solid var(--line); }
+.think li.run .ic { border-color: var(--accent); border-right-color: transparent; animation: spin .8s linear infinite; }
+.think li.done .ic { border: 0; background: var(--accent); position: relative; }
+.think li.done .ic::after { content: ""; position: absolute; left: 5px; top: 2px; width: 4px; height: 8px; border: solid var(--accent-ink); border-width: 0 2px 2px 0; transform: rotate(45deg); }
+.think .res { display: block; font-size: 13px; color: var(--muted); }
+.think .res.hit { color: var(--danger); }
+.sum { margin: 0 0 8px; font-size: 14px; }
+.chain { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 8px; }
+.chain .step { display: grid; grid-template-columns: 22px minmax(0, 1fr); gap: 10px; font-size: 14px; }
+.chain .st-n { width: 22px; height: 22px; border-radius: 50%; display: grid; place-items: center; font-size: 12px; font-weight: 600;
+  border: 1.5px solid var(--line); color: var(--muted); font-variant-numeric: tabular-nums; }
+.chain .step:not(.on) b { color: var(--muted); font-weight: 500; }
+.lv-danger .step.on .st-n { background: var(--danger); border-color: var(--danger); color: var(--surface); }
+.lv-suspicious .step.on .st-n { background: var(--warn); border-color: var(--warn); color: var(--surface); }
+.lv-no_signs .step.on .st-n { background: var(--ok); border-color: var(--ok); color: var(--surface); }
+.chain .st-hint { display: block; font-size: 12px; color: var(--muted); }
+.chain .st-none { display: block; font-size: 12px; color: var(--muted); font-style: italic; }
+.chain ul { margin: 4px 0 0; padding-left: 18px; }
+.concl { margin: 10px 0 0; font-size: 14px; font-weight: 500; }
+.reality { margin-top: 10px; padding: 8px 12px; border-radius: 10px; background: var(--sunken); font-size: 14px; }
+@keyframes spin { to { transform: rotate(360deg); } }
+details.trace { margin-top: 12px; font-size: 13px; border-top: 1px solid var(--line); padding-top: 8px; }
+details.trace summary { cursor: pointer; color: var(--accent); }
+details.trace .think { margin-top: 8px; font-size: 13px; }
+.send:disabled { opacity: .6; cursor: wait; }
+.ctx { border-top: 1px solid var(--line); }
+.ctx summary { cursor: pointer; padding: 10px 16px; font-weight: 600; font-size: 14px; color: var(--accent); }
+.ctx .muted-s { font-weight: 400; color: var(--muted); }
+.ctx-body { padding: 0 16px 14px; display: flex; flex-direction: column; gap: 12px; font-size: 14px; }
+.ctx .field { display: flex; flex-direction: column; gap: 6px; border: 0; padding: 0; margin: 0; min-width: 0; }
+.ctx label, .ctx legend { color: var(--muted); font-size: 13px; padding: 0; }
+.ctx select, .ctx textarea { font: 14px/1.4 var(--body); color: var(--ink); background: var(--bg); border: 1px solid var(--line); border-radius: 10px; padding: 8px 10px; }
+.ctx textarea { resize: vertical; }
+.seg, .chips-in { display: flex; flex-wrap: wrap; gap: 6px; }
+.seg label, .chips-in label { position: relative; }
+.seg input, .chips-in input { position: absolute; opacity: 0; pointer-events: none; }
+.seg span, .chips-in span { display: inline-block; border: 1px solid var(--line); border-radius: 999px; padding: 5px 12px; color: var(--ink); cursor: pointer; font-size: 13px; }
+.seg input:checked + span, .chips-in input:checked + span { background: var(--accent); border-color: var(--accent); color: var(--accent-ink); }
+.seg input:focus-visible + span, .chips-in input:focus-visible + span, .ctx .check input:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.ctx .check { display: flex; gap: 8px; align-items: flex-start; color: var(--ink); font-size: 14px; }
+.ctx .check input { margin-top: 3px; accent-color: var(--accent); }
+.row-btns { display: flex; gap: 12px; align-items: center; flex-wrap: wrap; }
+.ghost { background: transparent; border: 1px solid var(--accent); color: var(--accent); border-radius: 10px; padding: 7px 12px; font-weight: 600; }
+.ghost:disabled { opacity: .5; cursor: default; }
+.link { background: none; border: 0; color: var(--muted); text-decoration: underline; padding: 0; font-size: 13px; }
+.urgent { margin-top: 10px; padding: 10px 12px; border-radius: 10px; border: 1px solid var(--danger); background: var(--danger-bg); }
+.urgent h4 { margin: 0 0 6px; color: var(--danger); }
+.urgent b { display: block; margin-top: 6px; font-size: 14px; }
+.ctxnote { margin-top: 6px; font-size: 13px; color: var(--muted); font-style: italic; }
+.me .ctxline { display: block; font-size: 12px; color: var(--muted); margin-top: 6px; }
+footer { margin-top: 32px; font-size: 13px; color: var(--muted); max-width: 70ch; }
+@media (prefers-reduced-motion: no-preference) { .msg { animation: in .18s ease-out; } @keyframes in { from { transform: translateY(4px); opacity: .4; } } }
+</style>
+</head>
+<body>
+
+
+<div class="wrap">
+  <header>
+    <svg class="mark" viewBox="0 0 48 48" aria-hidden="true">
+      <path d="M24 3 42 9v13c0 11.5-7.6 19.6-18 23C13.6 41.6 6 33.5 6 22V9z" fill="var(--accent)"/>
+      <path d="m16 24 6 6 11-12" fill="none" stroke="var(--accent-ink)" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round"/>
+    </svg>
+    <div>
+      <h1>Калкан</h1>
+      <p class="tag">Перешлите боту подозрительное сообщение, ссылку или номер. Он скажет, похоже ли это на мошенничество, какая это схема и что делать.</p>
+      <p class="tag"><a href="kalkan-stage1.pdf" style="color:var(--accent); font-weight:600">Презентация проекта (PDF)</a></p>
+    </div>
+  </header>
+
+  <div class="grid">
+    <section class="chat" aria-label="Демо бота">
+      <div class="chat-head">
+        <div class="avatar"><svg viewBox="0 0 48 48" aria-hidden="true"><path d="M24 3 42 9v13c0 11.5-7.6 19.6-18 23C13.6 41.6 6 33.5 6 22V9z" fill="var(--accent-ink)"/></svg></div>
+        <div><b>Калкан</b><span>бот · проверка на мошенничество</span></div>
+      </div>
+      <div class="log" id="log" aria-live="polite"></div>
+      <details class="ctx" id="ctx">
+        <summary>Контекст <span class="muted-s">— необязательно: то, чего нет в самом сообщении</span></summary>
+        <div class="ctx-body">
+          <div class="field">
+            <label for="ctx-channel">Откуда пришло</label>
+            <select id="ctx-channel">
+              <option value="">Не указано</option>
+              <option value="sms">СМС</option>
+              <option value="messenger">Мессенджер (Telegram, WhatsApp)</option>
+              <option value="call">Звонок</option>
+              <option value="email">E-mail</option>
+              <option value="social">Соцсеть</option>
+            </select>
+          </div>
+          <fieldset class="field">
+            <legend>Отправитель</legend>
+            <div class="seg">
+              <label><input type="radio" name="sender" id="ctx-sender-none" value="" checked><span>Не знаю</span></label>
+              <label><input type="radio" name="sender" id="ctx-sender-known" value="known"><span>Знакомый</span></label>
+              <label><input type="radio" name="sender" id="ctx-sender-unknown" value="unknown"><span>Незнакомый</span></label>
+            </div>
+          </fieldset>
+          <label class="check"><input type="checkbox" id="ctx-expected"><span>Я сам(а) подавал(а) заявку или ждал(а) это сообщение</span></label>
+          <fieldset class="field">
+            <legend>Я уже…</legend>
+            <div class="chips-in">
+              <label><input type="checkbox" name="done" id="ctx-done-money" value="money"><span>перевел(а) деньги</span></label>
+              <label><input type="checkbox" name="done" id="ctx-done-code" value="code"><span>назвал(а) код</span></label>
+              <label><input type="checkbox" name="done" id="ctx-done-documents" value="documents"><span>отправил(а) документы</span></label>
+              <label><input type="checkbox" name="done" id="ctx-done-link" value="link"><span>перешел(а) по ссылке</span></label>
+              <label><input type="checkbox" name="done" id="ctx-done-app" value="app"><span>установил(а) приложение</span></label>
+            </div>
+          </fieldset>
+          <div class="field">
+            <label for="ctx-note">Что еще важно</label>
+            <textarea id="ctx-note" rows="2" placeholder="Например: звонили с незнакомого номера, я уже скинула фото паспорта"></textarea>
+          </div>
+          <div class="row-btns">
+            <button type="button" class="ghost" id="recheck" disabled>Пересчитать последнее сообщение</button>
+            <button type="button" class="link" id="ctx-clear">Сбросить</button>
+          </div>
+        </div>
+      </details>
+      <form class="composer" id="form">
+        <label for="text" hidden>Сообщение для проверки</label>
+        <textarea id="text" placeholder="Вставьте текст сообщения, ссылку или номер…"></textarea>
+        <button class="send" type="submit">Проверить</button>
+      </form>
+      <div class="chips" id="chips" aria-label="Примеры"></div>
+    </section>
+
+    <aside>
+      <div class="panel">
+        <h2>Как это работает</h2>
+        <ol class="steps">
+          <li><span class="n">1</span><span>Получили странное сообщение — нажмите «Переслать» и выберите бота.</span></li>
+          <li><span class="n">2</span><span>Бот сверяет текст с базой схем, проверяет ссылки, номера и файлы. В полной версии ИИ дает второе мнение и читает скриншоты.</span></li>
+          <li><span class="n">3</span><span>Вы получаете вердикт, название схемы и что делать прямо сейчас.</span></li>
+        </ol>
+      </div>
+      <div class="panel">
+        <h2>Три ответа, и ни одного «безопасно»</h2>
+        <div class="levels">
+          <div><span class="dot r"></span>Очень похоже на мошенничество</div>
+          <div><span class="dot y"></span>Есть признаки — будьте осторожны</div>
+          <div><span class="dot g"></span>Явных признаков нет, но это не гарантия</div>
+        </div>
+      </div>
+      <div class="panel">
+        <h2>Семейный режим</h2>
+        <div class="phone">
+          <div class="notif" id="notif"></div>
+          <p class="cap">Так выглядит уведомление на телефоне внука, когда мама проверила опасное сообщение. Текст самого сообщения не передается.</p>
+        </div>
+      </div>
+    </aside>
+  </div>
+
+  <footer>Это демо работает прямо в браузере по базе из 20 схем, распространенных в Кыргызстане. Тексты никуда не отправляются. В Telegram-версии дополнительно подключаются ИИ-анализ, проверка скриншотов, файлов, база жалоб на номера и семейный режим.</footer>
+</div>
+
+<script>(()=>{var Se=Object.defineProperty;var ve=(e,t,n)=>t in e?Se(e,t,{enumerable:!0,configurable:!0,writable:!0,value:n}):e[t]=n;var K=(e,t,n)=>ve(e,typeof t!="symbol"?t+"":t,n);var I={money:"перевели деньги",code:"назвали код или пароль",documents:"отправили документы или личные данные",link:"перешли по ссылке или ввели данные на сайте",app:"установили приложение или открыли файл"},_e={money:["Сразу позвоните в банк по номеру на карте или в приложении: попросите остановить перевод и заблокировать получателя. Счет идет на часы.","Подайте заявление в милицию (102) и сохраните переписку, номера и чеки."],code:["Срочно позвоните в банк и заблокируйте карту и вход в приложение.","Смените пароли. В Telegram: Настройки → Устройства → завершите чужие сеансы и включите облачный пароль.","Предупредите знакомых: от вашего имени могут просить деньги."],documents:["Сообщите в свой банк, что документы могли попасть к мошенникам.","Проверьте свою кредитную историю в кредитном бюро и следите за ней несколько месяцев.","Если на вас оформят кредит или сим-карту — сразу подайте заявление в милицию (102)."],link:["Если вводили логин, пароль или данные карты — позвоните в банк и смените пароли.","Не вводите на этом сайте больше ничего и закройте его."],app:["Включите режим полета, чтобы программа не отправила ваши СМС.","Позвоните в банк с другого телефона и заблокируйте карту.","Удалите приложение, а лучше сбросьте телефон к заводским настройкам."]},Le=new Set(["bank_security_call","sms_code_request","police_impersonation","relative_in_trouble","fake_nbkr_credit","phishing_site","malicious_apk","account_takeover","hacked_friend_loan","operator_sim"]);function G(e,t){let n={signals:[],scoreDelta:0,notes:[],verify:[]};return e&&(e.sender==="unknown"&&t.hasAction&&(n.signals.push({text:"Просьбу присылает незнакомый вам отправитель",weight:10,source:"rules",stage:"trust"}),n.scoreDelta+=10,n.notes.push("Отправитель вам незнаком — это повышает риск.")),e.sender==="known"&&(n.notes.push("Вы знаете отправителя, но его аккаунт или номер могли взломать или подменить."),t.hasAction&&n.verify.push("Перезвоните этому человеку голосом по известному вам номеру и спросите, писал ли он.")),e.expected&&(Le.has(t.schemeId)?n.notes.push("Вы ждали похожего сообщения, но для этой схемы это не меняет оценку: мошенники пишут именно тем, кто чего-то ждет."):t.score>0&&(n.scoreDelta-=20,n.notes.push("Вы сами подавали заявку или ждали этого сообщения — это немного снижает риск."),n.verify.push("Сверьте, что сообщение пришло с того же сайта, адреса или номера, где вы подавали заявку."))),e.channel==="call"&&t.score>=35&&n.verify.push("Положите трубку и перезвоните в организацию сами по официальному номеру."),e.done?.length&&n.notes.push(`Вы уже ${e.done.map(r=>I[r]).join(", ")}.`)),n}function Y(e,t){return!e?.done?.length||t==="no_signs"?[]:e.done.map(n=>({action:n,title:`Вы ${I[n]}`,steps:_e[n]}))}function q(e){let t=e.toLowerCase().replace(/ё/g,"е"),n={note:e.slice(0,500)},r=new Set;return/(перевел|перевела|отправил\p{L}* деньги|скинул\p{L}* деньги|оплатил|заплатил|перечислил)/u.test(t)&&r.add("money"),/(назвал\p{L}*|сказал\p{L}*|продиктовал\p{L}*|сообщил\p{L}*|ввел\p{L}*|отправил\p{L}*) (им |ему |ей )?(код|пароль|cvv)/u.test(t)&&r.add("code"),/(отправил\p{L}*|скинул\p{L}*|прислал\p{L}*|дал\p{L}*|сфотографировал\p{L}*) (им |ему |ей )?(фото |копию |скан )?(паспорт|документ|пин|инн|айди|id)/u.test(t)&&r.add("documents"),/(перешел|перешла|открыл\p{L}* ссылк|ввел\p{L}* (данные|карт|логин))/u.test(t)&&r.add("link"),/(установил\p{L}*|скачал\p{L}*|открыл\p{L}* файл)/u.test(t)&&r.add("app"),r.size&&(n.done=[...r]),/(не знаю (этот|этого|эту|его|ее|их|отправител|кто)|незнаком|чужой номер|первый раз вижу|неизвестн\p{L}* номер)/u.test(t)?n.sender="unknown":/(это мой (друг|брат|сын|коллега)|это моя (подруга|сестра|дочь|мама)|знаю (его|ее)|знакомый)/u.test(t)&&(n.sender="known"),/(сам\p{L}* подавал\p{L}*|подавал\p{L}* заявку|я ждал\p{L}*|ожидал\p{L}*|регистрировал\p{L}*)/u.test(t)&&(n.expected=!0),/(звонил\p{L}*|позвонил\p{L}*|по телефону)/u.test(t)?n.channel="call":/(смс|sms)/u.test(t)&&(n.channel="sms"),n}function X(e={},t={}){let n=[...new Set([...e.done??[],...t.done??[]])];return{channel:t.channel??e.channel,sender:t.sender??e.sender,expected:t.expected??e.expected,done:n.length?n:void 0,note:[e.note,t.note].filter(Boolean).join(`
+`).slice(-1e3)||void 0}}var s=(e,t,n,r,i)=>({re:new RegExp(e.source.replace(/\\w/g,"[\\p{L}\\p{N}_]").replace(/\\W/g,"[^\\p{L}\\p{N}_]"),"u"),weight:t,label:n,stage:r,tag:i}),W=[{id:"fake_nbkr_credit",name:"Фейковый кредит или «документ» от Нацбанка",reality:"Нацбанк не выдает кредиты гражданам и не пишет в мессенджерах, а настоящий банк не берет деньги до выдачи кредита.",howItWorks:"Мошенники от имени Нацбанка или банка «одобряют» кредит и показывают документ с логотипом и печатью, а потом просят оплатить страховку, комиссию или «разблокировку».",patterns:[s(/нацбанк|национальн\w* банк|нбкр|nbkr|улуттук банк/,25,"Ссылаются на Нацбанк","trust"),s(/кредит\w* (одобрен|утвержден)|одобрен\w* кредит|насыя/,25,"Сообщают об «одобренном» кредите","bait"),s(/(страхов\w*|комисси\w*|гарантийн\w*|обеспечительн\w*) (взнос|платеж|сбор)|оплат\w* (страхов|комисси|налог)/,35,"Просят заплатить до получения денег","action"),s(/разблокир\w*|заморож\w* (средств|счет)|снят\w* ареста?/,20,"Говорят о «заблокированных» деньгах","bait"),s(/сертификат|печат\w*|гербов\w*|официальн\w* документ/,10,"Показывают «официальные» документы","trust"),s(/без (справок|проверки|залога|поручител)/,15,"Кредит «без проверки и справок»","bait"),s(/(комисси|камсыздандыру|страхов)\w*.{0,20}төлө/,35,"Просят заплатить до получения денег","action")],advice:["Нацбанк не выдает кредиты гражданам и не пишет в Telegram — это всегда мошенники.","Настоящий банк никогда не просит заплатить до выдачи кредита.","Проверьте лицензию организации на сайте nbkr.kg."]},{id:"bank_security_call",name:"«Служба безопасности банка»",reality:"Банк никогда не просит переводить деньги на «безопасный счет» и не звонит, чтобы «спасти» ваши деньги.",howItWorks:"Звонят или пишут от имени банка: «по вашей карте подозрительная операция», просят назвать код из СМС, перевести деньги на «безопасный счет» или установить приложение.",patterns:[s(/служб\w* безопасност|коопсуздук кызмат/,30,"Представляются службой безопасности","trust"),s(/подозрительн\w* (операци|перевод|транзакци|вход)/,25,"Пугают подозрительной операцией","bait"),s(/безопасн\w* (счет|ячейк|карт)|резервн\w* счет/,40,"Предлагают перевести деньги на «безопасный счет»","action"),s(/(ваш\w*|вашу) (карт\w*|счет\w*) (заблокир|взлом|скомпрометир)/,20,"Сообщают о блокировке карты","bait"),s(/(пытаются|попытк\w*|хотят) (списать|снять|перевести|оформить (на вас )?кредит)|(отменить|остановить|заблокировать) (операци|перевод|списани)/,25,"Пугают попыткой списать деньги","bait"),s(/anydesk|rustdesk|teamviewer|удаленн\w* доступ|демонстраци\w* экрана/,40,"Просят установить программу удаленного доступа","action")],advice:["Положите трубку и сами позвоните в банк по номеру с обратной стороны карты.","Банк никогда не просит переводить деньги на «безопасный счет».","Не устанавливайте приложения по просьбе звонящего."]},{id:"sms_code_request",name:"Выманивание кода из СМС",reality:"Код из СМС — это ключ от вашего банка или мессенджера. Его не спрашивает ни банк, ни курьер, ни оператор.",howItWorks:"Под любым предлогом (доставка, выигрыш, подтверждение, «ошиблись номером») просят сообщить код из СМС — это код для входа в ваш банк, Telegram или WhatsApp.",patterns:[s(/(код\w*|kod) (из|с) (смс|sms|сообщени)/,45,"Просят код из СМС","action"),s(/(назов|продиктуй|скаж|отправ|скин|сообщ)\w* (мне )?(код|пароль|cvv|cvc)/,45,"Просят назвать код или пароль","action"),s(/cvv|cvc|срок действия карты|три цифры на обороте/,40,"Спрашивают данные карты","action"),s(/код подтверждени|одноразов\w* (код|пароль)/,20,"Упоминают код подтверждения","action"),s(/ошибочно отправил\w* (код|смс)|случайно (отправил|пришел) код/,35,"«Случайно отправили вам код»","bait")],advice:["Никому не сообщайте коды из СМС, пароли, CVV — даже «сотрудникам банка».","Если код уже назвали — сразу позвоните в банк и заблокируйте карту."]},{id:"police_impersonation",name:"Фейковые сотрудники МВД / ГКНБ / прокуратуры",reality:"Милиция и ГКНБ не ведут дела по телефону и в мессенджерах и никогда не просят переводить деньги.",howItWorks:"Представляются следователем, говорят, что на вас «оформляют кредит» или вы «участник уголовного дела», и требуют перевести деньги или помочь «задержать мошенника».",patterns:[s(/мвд|гкнб|следовател|прокуратур|уголовн\w* дел|полици|милици/,25,"Представляются силовыми органами","trust"),s(/(вы|вас) (подозрева|свидетел|соучастн|фигурант)/,30,"Обвиняют вас в причастности к делу","bait"),s(/(никому|родственникам|близким) не (говорит|сообща|рассказыва)|подписк\w* о неразглашени|тайн\w* следстви/,35,"Требуют держать разговор в секрете","urgency"),s(/задержан\w* мошенник|помоч\w* (следстви|задержать|поймать)/,25,"Просят «помочь следствию»","action")],advice:["Полиция не решает дела по телефону или в Telegram и не просит переводить деньги.","Позвоните в дежурную часть 102 и сообщите о звонке."]},{id:"relative_in_trouble",name:"«Родственник попал в беду»",reality:"Родственник в беде может написать с чужого телефона, но проверить это легко: перезвоните на его старый номер.",howItWorks:"Пишут или звонят от имени сына, внука или знакомого: попал в ДТП, задержан, в больнице — срочно нужны деньги, «не звони, телефон сломался».",patterns:[s(/(мама|папа|бабушк|дедушк|апа|ата|эне|тайене)\W{0,3}(это я|я попал|помоги|срочно)/,35,"Пишут от имени родственника","trust"),s(/попал\w* в (дтп|аварию|беду|больниц|полици)|сбил\w* человек/,35,"Сообщают о ДТП или беде","bait"),s(/(это мой|у меня) нов\w* номер|телефон (сломал|разбил|потерял)/,25,"«Это мой новый номер»","trust"),s(/не звони|не могу говорить|только пиши/,20,"Просят не звонить","urgency")],advice:["Перезвоните родственнику на его старый, известный вам номер.","Задайте вопрос, ответ на который знает только он."]},{id:"hacked_friend_loan",name:"Взломанный аккаунт друга просит денег",reality:"Если друг просит денег только в переписке и не берет трубку, скорее всего, его аккаунт взломан.",howItWorks:"Аккаунт знакомого в Telegram/WhatsApp взломан, и от его имени всем контактам пишут: «займи до завтра», «скинь на карту», «проголосуй».",patterns:[s(/(займи|одолжи|выручи|карыз)\w*/,25,"Просят занять денег","action"),s(/до (завтра|вечера|понедельника)|верну (завтра|вечером|сегодня|сразу)/,20,"Обещают вернуть очень быстро","bait"),s(/(скинь|скиньте|переведи|переведите|кинь)\w* (на|по) (карт|номер|мбанк|mbank|элсом|о!деньги|баланс)/,30,"Просят перевести на карту или номер","action"),s(/срочно|шашылыш|очень нужно|горит/,10,"Торопят","urgency")],advice:["Позвоните другу голосом (не в этом чате) и уточните, писал ли он.","Если аккаунт взломан — предупредите общих знакомых."]},{id:"fake_prize",name:"Фейковый выигрыш или подарок",reality:"Настоящий выигрыш не требует платить заранее за доставку, налог или «оформление».",howItWorks:"«Вы выиграли» телефон, деньги или подарок от известного бренда; чтобы получить — нужно оплатить доставку, налог или ввести данные карты по ссылке.",patterns:[s(/вы (выиграл|стал\w* победител|получил\w* приз)|розыгрыш|утуш|сыйлык/,30,"Сообщают о выигрыше","bait"),s(/оплат\w* (доставк|налог|пошлин|комисси)|для получения (приза|подарка|выигрыша)/,35,"Просят заплатить, чтобы получить приз","action"),s(/(\d+[\s.,]?\d*\s*(сом|som|kgs|руб|\$|usd))[^.]{0,40}(бесплатно|в подарок|получите)/,15,"Обещают крупную сумму или подарок","bait"),s(/акци\w*.{0,30}(только сегодня|осталось \d+|ограничен)/,15,"Создают искусственный дефицит","urgency")],advice:["Настоящий выигрыш не требует оплаты «доставки» или «налога» заранее.","Не вводите данные карты на сайтах из сообщений."]},{id:"investment_scam",name:"Фейковые инвестиции и «пассивный доход»",reality:"Гарантированного высокого дохода без риска не бывает. Такие обещания — главный признак финансовой пирамиды.",howItWorks:"Обещают высокий гарантированный доход: биржа, крипта, «проект от государства», «доля в компании». Сначала дают вывести немного, потом забирают все.",patterns:[s(/инвестиц|инвестир|трейдинг|биржа|крипт|bitcoin|usdt|форекс|forex/,20,"Предлагают инвестиции","bait"),s(/(\d{1,3}\s?%)\s*(в|за)\s*(день|сутки|неделю|месяц)|доход\w* от \d+/,35,"Обещают высокий процент дохода","bait"),s(/гарантированн\w* (доход|прибыл)|без риска|пассивн\w* доход/,30,"Гарантируют доход без риска","bait"),s(/личн\w* (менеджер|куратор|аналитик)|закрыт\w* (клуб|канал|чат)/,15,"Предлагают «личного куратора»","trust")],advice:["Гарантированного высокого дохода не бывает.","Проверьте, есть ли у компании лицензия Службы регулирования финансового рынка."]},{id:"fake_job",name:"Фейковая работа «на дому»",reality:"Настоящий работодатель платит вам, а не просит деньги, чтобы начать работать.",howItWorks:"Предлагают легкую работу: ставить лайки, писать отзывы, выкупать товары. Платят пару раз, а потом просят «внести депозит» или используют ваш счет для отмывания денег (дропы).",patterns:[s(/работ\w* (на дому|онлайн|из дома)|подработк|удаленн\w* работ/,15,"Предлагают легкую подработку","bait"),s(/(ставить|ставите) лайки|писать отзывы|выкуп\w* товар|оценивать товар|задани\w* (за|по) \d+/,30,"Платят за лайки, отзывы или «задания»","bait"),s(/(внести|внесите|пополнит)\w* (депозит|баланс|взнос)|предоплат/,35,"Просят внести деньги, чтобы начать","action"),s(/(принимать|прием) (платежи|переводы) на (свою|вашу) карт|аренд\w* карт/,45,"Просят принимать переводы на вашу карту","action"),s(/\d{3,}\s*(сом|som|\$|руб)\s*(в|за)\s*(день|час)/,15,"Обещают высокий заработок за простые действия","bait")],advice:["Работодатель не просит платить, чтобы начать работать.","Никогда не давайте свою карту для чужих переводов — это уголовная ответственность (дропперство)."]},{id:"marketplace_scam",name:"Мошенничество при покупке/продаже (Lalafo, OLX, маркетплейсы)",reality:"Чтобы получить деньги за товар, не нужно вводить данные карты или CVV.",howItWorks:"«Покупатель» присылает ссылку, чтобы вы «получили оплату», или «продавец» просит предоплату за товар, которого нет.",patterns:[s(/получит\w* (оплату|деньги|перевод) по ссылке|для получения (оплаты|денег) (перейд|введ)/,45,"Предлагают «получить оплату по ссылке»","action"),s(/безопасн\w* сделк|оформил\w* доставк\w* через|курьерск\w* служб/,20,"Упоминают «безопасную сделку» или доставку","trust"),s(/введите (данные|номер) (карты|карточки)|(номер|данные) карты и/,40,"Просят ввести данные карты","action"),s(/lalafo|лалафо|olx|wildberries|ozon|авито/,5,"Упоминают маркетплейс","trust"),s(/(только|сначала) предоплат|100\s?% предоплат/,25,"Требуют полную предоплату","action")],advice:["Чтобы получить деньги, не нужно вводить данные карты или CVV.","Общайтесь и платите только внутри площадки."]},{id:"malicious_apk",name:"Вредоносное приложение (APK) под видом приглашения или фото",reality:"Фото и приглашения не бывают в формате APK — это программа, которая может читать ваши СМС и коды банка.",howItWorks:"Присылают файл «Приглашение на той.apk», «Фото.apk», «Документ.apk». После установки программа читает СМС и дает мошенникам доступ к вашему банку.",patterns:[s(/\.apk|\.xapk/,60,"В сообщении APK-файл (приложение Android)","action"),s(/(приглашени|чакыруу)\w*.{0,30}(той|свадьб|юбиле|туулган)/,25,"«Приглашение на той/свадьбу»","bait"),s(/(установи|скачай|откро)\w* (приложени|файл|программ)/,15,"Просят установить приложение","action"),s(/это (ты|вы) на фото|посмотри (фото|видео) (с тобой|где ты)/,25,"«Это ты на фото?»","bait")],advice:["Не устанавливайте APK-файлы из сообщений — только приложения из Google Play / App Store.","Если уже установили — включите режим полета, позвоните в банк и сбросьте телефон к заводским настройкам."]},{id:"state_payout",name:"Фейковые выплаты, компенсации и пособия",reality:"Государственные выплаты не оформляются по ссылкам в мессенджерах.",howItWorks:"«Государство выплачивает компенсацию / пособие / возврат налога» — нужно перейти по ссылке и ввести данные карты или оплатить «оформление».",patterns:[s(/компенсаци|выплат\w* (от государства|гражданам)|пособи|соцвыплат|возврат (налог|средств)/,30,"Обещают выплату или компенсацию","bait"),s(/(вам|вами) (начислен|положен|одобрен)\w* (компенсац|выплат|пособи)/,15,"«Вам начислена выплата»","bait"),s(/(тундук|түндүк|tunduk|госуслуг|gov\.kg|минтруд|соцфонд)/,10,"Ссылаются на госорганы","trust"),s(/(перейдите|переходите|жмите|нажмите) (по|на) ссылк|успейте оформить/,20,"Просят перейти по ссылке","action")],advice:["Государственные выплаты не оформляют через ссылки в мессенджерах.","Проверяйте информацию только на официальных сайтах *.gov.kg."]},{id:"phishing_site",name:"Поддельный сайт банка или сервиса (фишинг)",reality:"Банки не присылают ссылки для «разблокировки» карты. Вход — только через официальное приложение.",howItWorks:"Присылают ссылку на сайт, который выглядит как банк, госуслуги или маркетплейс, и просят «войти», «разблокировать карту» или «подтвердить данные». Все, что вы введете, попадает к мошенникам.",patterns:[s(/(войдите|авторизуйтесь|зайдите в (личный )?кабинет|подтвердите (свои )?данные|обновите (свои )?данные)/,20,"Просят войти или подтвердить данные","action"),s(/(ваш\w*) (карт\w*|счет\w*|аккаунт\w*|кабинет\w*) (заблокир|приостановл|будет (заблокир|удален))/,25,"Пугают блокировкой карты или аккаунта","bait"),s(/(для|чтобы) (разблокир|восстановл|снят\w* блокир)/,15,"Предлагают «разблокировать» по ссылке","action")],advice:["Не вводите логин, пароль, номер карты и коды на сайтах из сообщений.","Открывайте банк только через официальное приложение или сайт, набранный вручную.","Если уже ввели данные — срочно позвоните в банк и заблокируйте карту."]},{id:"romance_scam",name:"Мошенничество через знакомства",reality:"Человек, которого вы не видели вживую, не должен просить у вас деньги — это главный признак обмана.",howItWorks:"Знакомятся в соцсетях или приложениях, быстро говорят о чувствах, рассказывают, что служат или работают за границей, а потом просят деньги на билет, лечение или «таможню» для подарка.",patterns:[s(/(любим\w*|дорог\w* мо[йя]|мой милый|моя милая|скучаю по тебе|ты мне очень нравишься|хочу быть с тобой)/,15,"Быстро переходят к теме чувств","trust"),s(/(военн\w* врач|служу в|миротвор|нефтян\w* платформ|моряк|живу в (сша|европ|германии|турции|дубае|корее)|работаю за границ)/,20,"Собеседник «за границей» или «на службе»","trust"),s(/(посылк|подар\w*).{0,40}(таможн|задержал|застрял)|таможенн\w* (сбор|пошлин)/,35,"«Подарок застрял на таможне»","bait"),s(/(вышли|отправь|переведи|оплати|помоги)\w*.{0,40}(на билет|на дорогу|чтобы приехать|на лечение|на таможн|на визу)/,35,"Просят деньги на билет, визу, таможню или лечение","action")],advice:["Не переводите деньги людям, которых не видели вживую.","Попросите видеозвонок и проверьте фото собеседника через поиск по картинке.","«Таможенных сборов» за подарки от частных лиц не бывает — это всегда обман."]},{id:"fake_charity",name:"Фальшивый благотворительный сбор",reality:"Настоящие фонды собирают деньги на счет организации и публикуют отчеты, а не просят переводить на личную карту.",howItWorks:"Распространяют трогательную историю о больном ребенке или беде, часто с чужими фото, и просят срочно перевести деньги на личную карту.",patterns:[s(/(сбор|собираем|помогите собрать|нужна помощь|нужны деньги)\w*.{0,50}(лечени|операци|ребен|больн|похорон|реабилит)/,30,"Просят помочь больному или ребенку","bait"),s(/(карт\w* (мамы|папы|бабушки|отца|матери)|на (мою|личную) карт|номер карты для помощи|реквизиты.{0,20}(мамы|папы))/,30,"Деньги просят на личную карту","action"),s(/(перешлите|сделайте репост|распространите|отправьте).{0,30}(всем|в группы|друзьям|контактам)/,10,"Просят переслать всем знакомым","urgency"),s(/(каждый сом|любая сумма|осталось (собрать|\d+ (дн|час))|счет идет на (дни|часы))/,15,"Давят на жалость и срочность","urgency")],advice:["Проверьте сбор: есть ли фонд, документы, отчеты, контакты врачей.","Переводите только на счета зарегистрированных фондов.","Поищите текст сбора в интернете — фейковые сборы годами копируют с одними и теми же фото."]},{id:"fake_fine",name:"Фейковые штрафы, долги и налоги",reality:"Штрафы «Безопасного города», налоги и долги проверяют и оплачивают в приложении банка или на госсервисах, а не по ссылкам из сообщений.",howItWorks:"Приходит сообщение о неоплаченном штрафе, налоге или долге с угрозой ареста счета или запрета выезда и ссылкой «для оплаты» — это фишинговая страница.",patterns:[s(/(штраф|задолженност|долг по (налог|кредит|коммунал)|неоплаченн\w* (налог|штраф|счет))/,20,"Сообщают о штрафе или долге","bait"),s(/(безопасн\w* город|гаи|упсд|налогов\w* (служб|инспекц)|гнс|судебн\w* (пристав|исполнител)|исполнительн\w* производств)/,15,"Ссылаются на ГАИ, налоговую или приставов","trust"),s(/(оплатит|погасит)\w*.{0,30}(по ссылке|сейчас|сегодня|в течение|немедленно)/,25,"Просят оплатить по ссылке или немедленно","action"),s(/(арест\w* (имуществ|счет|карт)|запрет\w* на выезд|лишени\w* прав|передан\w* в суд|принудительн\w* взыскан)/,25,"Угрожают арестом, судом или запретом выезда","bait")],advice:["Проверьте штраф или долг в приложении своего банка или на официальном госпортале.","Не платите по ссылкам из СМС и мессенджеров."]},{id:"operator_sim",name:"Фейковый оператор связи",reality:"Операторы связи не продлевают номера по звонку и не спрашивают коды — это делается в офисе или приложении оператора.",howItWorks:"Звонят или пишут от имени оператора: «срок действия номера истекает», «продлите договор», — и просят код из СМС или паспортные данные, чтобы перевыпустить сим-карту и войти в ваш банк.",patterns:[s(/(ваш\w* (номер|сим-?карт\w*)) (будет )?(заблокир|отключ|аннулир)|срок действия (вашего )?(номера|сим-?карты|договора)/,30,"Пугают отключением номера","bait"),s(/(продлит|переоформит|подтверд)\w* (номер|договор|сим-?карт)/,20,"Просят «продлить договор» или «подтвердить номер»","action"),s(/(оператор\w* связ|абонент|megacom|мегаком|beeline|билайн|сотов\w* связ)/,10,"Представляются оператором связи","trust"),s(/(паспортн\w* данн|персональн\w* данн|фото паспорта)/,20,"Просят паспортные данные","action")],advice:["Положите трубку и позвоните на официальный номер оператора.","Не называйте коды из СМС и паспортные данные по телефону."]},{id:"opportunity_scam",name:"Фейковые гранты, форумы, стипендии и поездки",reality:"Настоящие форумы, гранты и стипендии объявляются публично: у них есть название организатора, сайт и время на подачу. Документы подают через официальную форму, а не в ответ на личное сообщение.",howItWorks:"Приглашают на «международный форум», обещают грант, стипендию или работу за границей: участие бесплатное, перелет и проживание оплачены. Для «регистрации» просят копию паспорта, ПИН или оплату «визы», а ответить нужно срочно. Документы потом используют для кредитов и регистрации фирм на ваше имя.",patterns:[s(/(международн\w* (форум|конференц|программ|стажировк|саммит|обмен)|программ\w* (обмена|стажировк)|форум\w* (лидеров|молодеж)|грант|стипенди|обучени\w* за рубеж|работ\w* (в|за) (корее|германии|польше|сша|европе|рубеж|границ)|вы (были )?(выбраны|отобраны|прошли отбор))/,20,"Привлекательная возможность: форум, грант, стипендия или работа за границей","bait","opportunity"),s(/(бесплатн\w* (участи|обучени|поездк|проживани|перел)|участие бесплатн|(оплачива|оплатят|покрыва|компенсир|берет на себя|берут на себя)\w* .{0,40}(проживани|перел|билет|расход|виз)|все расходы|за счет (организатор|работодател|принимающ|фонда))/,20,"Все расходы «оплачены» — слишком щедрое предложение","bait","opportunity"),s(/(для|чтобы) (регистрац|оформлени|участи|получени|визы|подачи|зачислени)\w*.{0,60}(паспорт|документ|id|айди|пин|инн|удостоверени)|(паспорт|документ)\w*.{0,40}(для|чтобы) (регистрац|оформлени|участи|визы)/,30,"Просят документы «для регистрации»","action","personal_data"),s(/(оплат|взнос|сбор)\w*.{0,30}(регистрац|оформлени|виз|участи)/,30,"Просят заплатить за визу, регистрацию или «оформление»","action")],advice:["Не отправляйте паспорт, ПИН и другие документы, пока не убедитесь, что организатор существует.","Найдите программу на официальном сайте организатора и подайте заявку только там.","Спросите у коллег или знакомых напрямую, передавали ли они ваш контакт."]},{id:"data_harvest",name:"Сбор паспортных и личных данных",reality:"Настоящие организации берут документы только через официальный канал: в отделении, в приложении или через защищенную форму на своем сайте, — и объясняют зачем.",howItWorks:"Под предлогом работы, конкурса, опроса или «проверки» просят прислать фото паспорта, ID-карты, ПИН или адрес. На эти данные оформляют микрокредиты, сим-карты и фирмы-однодневки.",patterns:[],advice:["Не отправляйте фото документов и ПИН в мессенджерах незнакомым.","Если уже отправили — сообщите в банк и следите за кредитной историей."]},{id:"account_takeover",name:"Кража аккаунта Telegram / WhatsApp",reality:"Голосования и «подарки» не требуют кода из СМС. Код нужен мошенникам, чтобы войти в ваш аккаунт.",howItWorks:"Просят «проголосовать за племянницу», «получить Telegram Premium бесплатно» или «подтвердить номер» — и выманивают код входа, чтобы захватить аккаунт.",patterns:[s(/проголосу|голосуй|голосовани|конкурс\w*.{0,20}(племянниц|дочь|сестр)/,30,"Просят проголосовать в «конкурсе»","bait"),s(/telegram premium|телеграм премиум|бесплатн\w* (премиум|звезд)/,30,"«Бесплатный Telegram Premium»","bait"),s(/(подтверд|верифицир)\w* (номер|аккаунт)|ваш аккаунт будет (удален|заблокирован)/,30,"Требуют подтвердить аккаунт","action")],advice:["Никогда не вводите номер телефона и код на сайтах «голосований».","Включите двухэтапную аутентификацию: Telegram → Настройки → Конфиденциальность → Облачный пароль."]}],Z=[s(/срочно|немедленно|в течение (\d+ )?(минут|часа)|последн\w* (шанс|день)|шашылыш/,10,"Давят срочностью","urgency","urgency"),s(/ответ\w* (нужно |необходимо |просим )?(сегодня|до конца дня|до вечера|в течение (часа|суток|\d+ (час|мин)))|до конца (дня|сегодняшнего)|мест\w* ограничен|количество мест ограничено|осталось (всего |только )?\d+ мест|предложение действует (\d+|только|до)|только до (сегодня|завтра|вечера)/,15,"Искусственная спешка: ответить нужно сегодня, мест мало","urgency","urgency"),s(/(копи|скан|фото|снимок|фотографи)\w* (\w+ )?(паспорт|id-?карт|айди|удостоверени|документ|свидетельств)|паспортн\w* данн|данн\w* (вашего )?паспорт|номер\w* паспорт|(?<!\w)(пин|инн)(?!\w)|персональн\w* (идентификационн\w* )?номер|адрес\w* (проживания|регистрации|прописки)|кодов\w* слов/,30,"Просят паспорт, документы или личные данные","action","personal_data"),s(/(ваш\w* (контакт|номер|данные)|вас) (нам |мне )?(передал|дал|дали|порекомендовал|посоветовал)|по рекомендации|(коллег|знаком|друз|преподавател|руководител)\w* (передал|посоветовал|порекомендовал|рекомендовал|дал)|мне (вас|ваш номер|ваш контакт) (посоветовал|порекомендовал|дал)/,15,"Ссылаются на коллег или знакомых — проверить это нельзя","trust","referral"),s(/(министерств|посольств|(?<!\w)оон(?!\w)|юнеско|юнисеф|usaid|undp|unicef|оргкомитет|университет|правительств|администраци\w* президента|международн\w* (организаци|фонд))/,5,"Ссылаются на авторитетную организацию","trust","authority"),s(/(никому|родным) не (говорите|рассказывайте)|это конфиденциально/,20,"Просят держать в секрете","urgency"),s(/(переведите|переведи|оплатите|отправьте|скиньте) [^.]{0,40}(сом|som|kgs|\$|руб|деньги|акча)/,15,"Просят перевести деньги","action"),s(/данные (вашей )?карты|номер (вашей )?карты/,15,"Интересуются данными карты","action")],J=s(/(в (любом |любое |ближайшем |ближайшее )?(отделени|офис|филиал|цон)|в (мобильном )?приложении (банка|\w+bank)?|приходите лично|при себе|с собой (паспорт|документ)|на официальном сайте|через (портал|госпортал|тундук|түндүк|госуслуг)|(сдайте|сдать|принесите|принести)\w* .{0,40}в (деканат|отдел кадров|бухгалтери|кабинет|приемн|учебн\w* часть))/,0,"Документы просят через официальный канал","action","legit_channel"),A=new Map(W.map(e=>[e.id,e]));function Q(e){return A.get(e)?.name}var Ce=["trust","bait","urgency","action"],Ee={trust:"Доверие",bait:"Страх или выгода",urgency:"Давление",action:"Опасная просьба"};var Ae=3,Te=[{test:e=>e.tag==="personal_data"||/паспорт|документ|личные данные/i.test(e.text),goal:"получить ваш паспорт и личные данные",harm:"На ваше имя могут оформить кредит, сим-карту или фирму-однодневку, а сами документы — продать."},{test:e=>/переводы на вашу карту/i.test(e.text),goal:"использовать вашу карту для чужих денег",harm:"Владельцев таких карт (дропов) привлекают к уголовной ответственности."},{test:e=>/код|пароль/i.test(e.text),goal:"получить код или пароль",harm:"Войдут в ваш банк или мессенджер и от вашего имени обманут ваших знакомых."},{test:e=>/карт|cvv/i.test(e.text)&&!/на карту/i.test(e.text),goal:"получить данные вашей карты",harm:"С карты спишут деньги."},{test:e=>/apk|приложени|файл|программ/i.test(e.text),goal:"установить вредоносную программу",harm:"Программа прочитает СМС с кодами и даст доступ к вашему банку."},{test:e=>/сайт|ссылк/i.test(e.text),goal:"заманить на поддельный сайт",harm:"Все, что вы введете на сайте — логин, пароль, данные карты, — попадет к мошенникам."},{test:e=>/перев|заплат|оплат|деньг|займ|занять|предоплат|депозит|взнос|счет/i.test(e.text),goal:"получить ваши деньги",harm:"Перевод почти невозможно вернуть."}];function ee(e){let{level:t,schemeId:n,signals:r}=e,i=A.get(n),a=f=>r.some(k=>k.tag===f),g=[];for(let f of Ce){let k=[...new Set(r.filter(d=>d.stage===f).map(d=>d.text))].slice(0,Ae);k.length&&g.push({stage:f,title:Ee[f],items:k})}let h=[...new Set(r.filter(f=>!f.stage&&f.tag!=="legit_channel").map(f=>f.text))].slice(0,4),w=g.length,x=g.some(f=>f.stage==="action"),u;t==="no_signs"?u="В сообщении нет признаков известных мошеннических схем.":i?u=`Сообщение похоже на схему ${i.name.startsWith("«")?i.name:`«${i.name}»`}. ${i.howItWorks}`:u="Сообщение не совпадает целиком ни с одной известной схемой, но в нем есть приемы, которыми пользуются мошенники.";let l;t==="no_signs"?l=w===0?"Никто не выдает себя за организацию, не торопит и не просит денег, кодов, документов или перехода по ссылке — главных приемов манипуляции нет.":`${w===1?"Есть отдельный признак":"Есть отдельные признаки"} (${g.map(f=>f.title.toLowerCase()).join(", ")}), но вместе они не складываются в мошенническую схему. Если дальше попросят деньги, код или документы — проверьте сообщение снова.`:w>=3&&x?l=`${w===4?"Здесь есть все 4 шага":`Здесь ${w} из 4 шагов`} типичной манипуляции: вас сначала убеждают, затем давят и в конце просят опасное действие. Даже без просьбы о деньгах такое сочетание — серьезный повод остановиться.`:w===2&&x?l="Здесь 2 из 4 шагов манипуляции, и один из них — опасная просьба (деньги, код, документы, ссылка или файл). Этого достаточно, чтобы остановиться и перепроверить.":x?l="Главный тревожный признак — опасная просьба: деньги, код, документы, ссылка или файл. От незнакомых такие просьбы всегда нужно перепроверять.":l="Прямой опасной просьбы пока нет, но так обычно начинается схема: следующим шагом просят деньги, код, документы или перейти по ссылке.";let m=[];if(t!=="no_signs")for(let f of r.filter(k=>k.stage==="action")){let k=Te.find(d=>d.test(f));k&&!m.some(d=>d.goal===k.goal)&&m.push({goal:k.goal,harm:k.harm})}let y=[];t!=="no_signs"&&(a("unverified_org")&&y.push("Название организатора, официальный сайт и контакты, по которым его можно проверить"),a("referral")&&y.push("Имя того, кто передал ваш контакт, — чтобы вы могли у него уточнить"),a("personal_data")&&y.push("Зачем нужны документы и как они будут защищены (официальная форма, договор, политика данных)"),a("opportunity")&&y.push("Ссылка на публичное объявление о программе и условия отбора"),a("urgency")&&y.push("Разумный срок на ответ — настоящие организаторы его дают"));let p=[];return(a("unverified_org")||a("opportunity")||a("authority"))&&p.push("Найдите организатора сами (через поиск, а не по ссылке из сообщения) и спросите по официальным контактам, приглашали ли вас."),a("referral")&&p.push("Спросите у коллег или знакомых напрямую, передавали ли они ваш контакт."),a("personal_data")&&p.push("Не отправляйте паспорт, ПИН и фото документов, пока не убедитесь, что отправитель настоящий."),a("urgency")&&p.push("Не спешите: срок «ответить сегодня» — прием давления, а не правило."),p.length===0&&t!=="no_signs"&&g.some(f=>f.stage==="trust")&&p.push("Свяжитесь с организацией или человеком сами — по номеру с официального сайта или по старому, известному вам номеру."),{summary:u,chain:g,conclusion:l,reality:t!=="no_signs"?i?.reality:void 0,extra:h,intent:m.slice(0,2),missing:y.slice(0,4),verify:p.slice(0,4)}}function te(e){return e>=70?"danger":e>=35?"suspicious":"no_signs"}var b=e=>Math.max(0,Math.min(100,Math.round(e)));var N=new Set(["apk","xapk","apks","exe","scr","bat","cmd","com","msi","js","jse","vbs","vbe","jar","ps1","hta","lnk","dll","pif","wsf","dex","ipa"]),ne=new Set(["zip","rar","7z","tar","gz","iso","img"]),Ie=new Set(["docm","xlsm","pptm","xlam"]),Re=new Set(["pdf","doc","docx","xls","xlsx","jpg","jpeg","png","mp4","mov","txt"]);function se(e){let t=[],n=(h,w)=>t.push({text:h,weight:w,source:"file",stage:"action"}),r=(e.name??"").toLowerCase().trim(),i=r.split("."),a=i.length>1?i.pop()??"":"",g=i.length>1?i[i.length-1]??"":"";return a==="apk"||a==="xapk"||a==="apks"||e.mimeType==="application/vnd.android.package-archive"?n("Это установочный файл Android-приложения (APK). Через такие файлы воруют доступ к банку и СМС",75):N.has(a)&&n(`Это исполняемый файл (.${a}) — он может запустить вредоносную программу`,60),a&&Re.has(g)&&(N.has(a)||ne.has(a))&&n(`Двойное расширение «.${g}.${a}» — файл притворяется документом или фото`,25),/\s{3,}|[‮‏]/.test(e.name??"")&&n("Имя файла скрывает настоящее расширение",30),ne.has(a)&&n("Архив: внутри может быть спрятана программа",15),Ie.has(a)&&n("Документ с макросами — может запустить вредоносный код",35),/(приглашени|чакыруу|фото|photo|видео|video|документ|скриншот|invite|той)/i.test(r)&&N.has(a)&&n("Название как у фото/приглашения, но внутри программа — классическая схема",15),{score:b(t.reduce((h,w)=>h+w.weight,0)),signals:t}}async function ie(e,t){if(!t)return;let n=await fetch(`https://www.virustotal.com/api/v3/files/${e}`,{headers:{"x-apikey":t},signal:AbortSignal.timeout(8e3)});if(n.status===404)return{known:!1,malicious:0,suspicious:0,total:0};if(!n.ok)throw new Error(`VirusTotal HTTP ${n.status}`);let i=(await n.json()).data?.attributes?.last_analysis_stats??{},a=Object.values(i).reduce((g,h)=>g+h,0);return{known:!0,malicious:i.malicious??0,suspicious:i.suspicious??0,total:a}}var $e=[["996","Кыргызстан"],["998","Узбекистан"],["992","Таджикистан"],["993","Туркменистан"],["380","Украина"],["375","Беларусь"],["374","Армения"],["994","Азербайджан"],["995","Грузия"],["90","Турция"],["86","Китай"],["44","Великобритания"],["49","Германия"],["7","Россия/Казахстан"],["1","США/Канада"]];function oe(e){let t=new Set;for(let n of e.matchAll(/(?<![\w/.])\+?\d[\d\s()-]{7,18}\d(?![\w/])/g)){let r=n[0].replace(/\D/g,"");r.length>=9&&r.length<=15&&t.add(n[0].trim())}return[...t]}function ze(e){let t=e.replace(/\D/g,"");return t.startsWith("00")&&(t=t.slice(2)),t.length===10&&t.startsWith("0")?t=`996${t.slice(1)}`:t.length===9&&!e.trim().startsWith("+")&&(t=`996${t}`),t}function Pe(e){return $e.find(([t])=>e.startsWith(t))?.[1]}function re(e){let t=ze(e),n=[],r=(i,a)=>n.push({text:i,weight:a,source:"phone",stage:"trust"});if(t.startsWith("996"))t.length!==12&&r("Номер в неправильном формате для Кыргызстана",10);else{let i=Pe(t);r(i?`Номер не кыргызстанский (${i})`:"Номер с иностранным или неизвестным кодом страны",15)}return{raw:e,normalized:t,score:b(n.reduce((i,a)=>i+a.weight,0)),signals:n}}function ae(e){return e.startsWith("996")&&e.length===12?`+996 ${e.slice(3,6)} ${e.slice(6,9)} ${e.slice(9)}`:`+${e}`}function We(e){return e.toLowerCase().replace(/ё/g,"е").replace(/\s+/g," ")}var Ne={a:"а",e:"е",o:"о",p:"р",c:"с",x:"х",y:"у",k:"к"};function Fe(e){return e.replace(/[\p{L}]+/gu,t=>{let n=/[а-яё]/i.test(t),r=/[a-z]/i.test(t);return!n||!r?t:t.replace(/[aeopcxykAEOPCXYK]/g,i=>{let a=i.toLowerCase(),g=Ne[a]??i;return i===a?g:g.toUpperCase()})})}var Me=/(продиктуй|назов|сообщите мне|скажите мне|переведи|перейди|пришли|отправь|скинь|оплати|установи|скача|введи|войди|займи|одолжи|перезвони|напиши мне)[\p{L}]*/u;function De(e){if(!/мошенник/u.test(e)||!/(никогда|никому) не (сообща|называ|переда|говор|переход|устанавлива)|будьте (бдительны|осторожны|внимательны)|предупрежда|остерегайтесь/u.test(e))return!1;let t=e.replace(/(никогда |никому )?не [\p{L}]+/gu," ");return!Me.test(t)}function ce(e){let t=Fe(e),n=t!==e,r=We(t),i=[];for(let l of W){let m=0,y=[];for(let p of l.patterns)p.re.test(r)&&(m+=p.weight,y.push({label:p.label,stage:p.stage,tag:p.tag}));y.length>0&&(y.length>=2||m>=40)&&i.push({id:l.id,score:b(m),matched:y})}i.sort((l,m)=>m.score-l.score);let[a,g]=i;a?.id==="sms_code_request"&&g&&g.matched.length>=2&&(i[0]=g,i[1]=a);let h=[];for(let l of Z)l.re.test(r)&&h.push({text:l.label,weight:l.weight,source:"rules",stage:l.stage,tag:l.tag});if(J.re.test(r))for(let l of h)l.tag==="personal_data"&&(l.text="Просят документы, но через официальный канал (отделение, приложение банка, госпортал)",l.weight=0,l.stage=void 0,l.tag="legit_channel");let x=i.some(l=>l.matched.some(m=>m.tag==="opportunity"))||/(организатор|оргкомитет|наша организация|наш фонд|наша компания|наш проект|программ\p{L}* (отбор|приглаша))/u.test(r),u=/https?:\/\/|www\.|[a-z0-9-]+\.(kg|com|org|net|ru|kz|uz|edu|gov|int|io)\b/i.test(e)||/[\w.+-]+@[\w-]+\.[a-z]{2,}/i.test(e)||/«[^»]{3,}»|"[^"]{3,}"/.test(e)||/(?<![\p{L}])[A-Z][A-Za-z]{2,}(?:\s+[A-Z][A-Za-z]+)*/u.test(e);return x&&!u&&h.push({text:"Не указано, кто организатор: нет названия, сайта или официального контакта",weight:10,source:"rules",stage:"trust",tag:"unverified_org"}),n&&h.push({text:"Буквы в словах подменены латиницей — так обходят фильтры",weight:20,source:"rules",stage:"trust"}),{schemes:i,signals:h,obfuscated:n,awareness:De(r)}}var R=[{token:"nbkr",name:"Нацбанк КР",domains:["nbkr.kg"]},{token:"natsbank",name:"Нацбанк КР",domains:["nbkr.kg"]},{token:"nacbank",name:"Нацбанк КР",domains:["nbkr.kg"]},{token:"mbank",name:"MBANK",domains:["mbank.kg"]},{token:"optima",name:"Оптима Банк",domains:["optimabank.kg"]},{token:"demir",name:"Демир Банк",domains:["demirbank.kg"]},{token:"bakai",name:"Бакай Банк",domains:["bakai.kg"]},{token:"kicb",name:"KICB",domains:["kicb.net"]},{token:"rsk",name:"РСК Банк",domains:["rsk.kg"]},{token:"aiylbank",name:"Айыл Банк",domains:["ab.kg"]},{token:"kompanion",name:"Компаньон",domains:["kompanion.kg"]},{token:"megacom",name:"MegaCom",domains:["megacom.kg"]},{token:"beeline",name:"Beeline",domains:["beeline.kg","beeline.ru","beeline.kz","beeline.uz"]},{token:"lalafo",name:"Lalafo",domains:["lalafo.kg"]},{token:"telegram",name:"Telegram",domains:["telegram.org","t.me","telegram.me"]},{token:"whatsapp",name:"WhatsApp",domains:["whatsapp.com","wa.me"]},{token:"tunduk",name:"Түндүк",domains:["gov.kg"]},{token:"gov",name:"госорган",domains:["gov.kg","gov.kz","gov.uz","gov.ru","gov.tj","gov.uk","gov"]}],le=new Set(["bit.ly","tinyurl.com","cutt.ly","clck.ru","goo.su","is.gd","t.ly","rb.gy","shorturl.at","s.id","tiny.cc","ow.ly","u.to","vk.cc","surl.li","qps.ru"]),Oe=new Set(["top","xyz","icu","click","live","shop","online","site","buzz","fun","monster","cfd","sbs","rest","quest","win","bond","lol","cyou","store","website","space","pw","tk","ml","ga","cf","gq","work","info","vip","pro"]),Ue=["netlify.app","vercel.app","pages.dev","web.app","firebaseapp.com","wixsite.com","tilda.ws","blogspot.com","glitch.me","ngrok.io","ngrok-free.app","000webhostapp.com","github.io","weebly.com","sites.google.com","forms.gle","ucoz.net","workers.dev"],Ve=new Set(["com.kg","org.kg","net.kg","gov.kg","edu.kg","co.uk","com.ru","com.kz","gov.kz","com.ua","com.tr","co.uz","gov.uz","com.cn"]),Be=/login|signin|verif|bonus|kompens|vyplat|viplat|credit|kredit|prize|gift|wallet|card|secure|confirm|unblock|payout|vote|golos/i;function je(e){return new URL(/^https?:\/\//i.test(e)?e:`http://${e}`)}function ge(e){let t=new Set,n=/\b((?:https?:\/\/)?(?:[a-z0-9Ѐ-ӿ-]+\.)+(?:[a-zЀ-ӿ]{2,24}|xn--[a-z0-9-]+)(?::\d+)?(?:\/[^\s<>"'«»)]*)?)/giu;for(let r of e.matchAll(n)){let i=r[1]??"";if(i=i.replace(/[.,;:!?]+$/,""),e[(r.index??0)-1]!=="@"&&/[a-zЀ-ӿ]/i.test(i.split(/[/:]/)[0]??"")){if(!/^https?:\/\//i.test(i)){let g=(i.split("/")[0]??"").split(".").pop()??"";if(!/^[a-z]{2,24}$|^xn--/.test(g.toLowerCase())&&!/^рф$/.test(g))continue}t.add(i)}}for(let r of e.matchAll(/\bhttps?:\/\/\d{1,3}(?:\.\d{1,3}){3}(?::\d+)?(?:\/\S*)?/gi))t.add(r[0]);return[...t]}function F(e){let t=e.toLowerCase().replace(/\.$/,"").split(".");if(t.length<=2)return t.join(".");let n=t.slice(-2).join(".");return Ve.has(n)?t.slice(-3).join("."):n}function He(e,t){let n=Array.from({length:t.length+1},(r,i)=>i);for(let r=1;r<=e.length;r++){let i=n[0];n[0]=r;for(let a=1;a<=t.length;a++){let g=n[a];n[a]=Math.min(n[a]+1,n[a-1]+1,i+(e[r-1]===t[a-1]?0:1)),i=g}}return n[t.length]}function Ke(e,t){return e===t?!0:e.startsWith(t)?/^(bank|kg|online|bonus|pay|credit|kredit|app|mobile|kz|login|secure|support|help|24|\d+)/.test(e.slice(t.length)):!1}function Ge(e){return e.replace(/rn/g,"m").replace(/vv/g,"w").replace(/0/g,"o").replace(/1/g,"l").replace(/3/g,"e")}function Ye(e,t){return t.some(n=>e===n||e.endsWith(`.${n}`))}function pe(e){let t=[],n=(u,l,m)=>t.push({text:u,weight:l,source:"url",stage:m}),r;try{r=je(e)}catch{return{url:e,host:e,score:10,signals:[{text:"Некорректная ссылка",weight:10,source:"url"}]}}let i=r.hostname.toLowerCase(),a=F(i),g=i.split(/[.-]/),h=i.split(".").pop()??"";/^\d{1,3}(\.\d{1,3}){3}$/.test(i)&&n("Ссылка ведет на IP-адрес вместо названия сайта",35),(i.includes("xn--")||/[Ѐ-ӿ]/.test(e.split("/")[2]??""))&&n("Адрес содержит похожие буквы из другого алфавита (punycode)",35),(r.username||r.password||e.split("?")[0].includes("@"))&&n("В ссылке спрятан другой адрес (символ @)",35);let w=R.some(u=>Ye(i,u.domains));if(!w){let u=R.find(l=>g.some(m=>Ke(m,l.token)));if(u)n(`Адрес выдает себя за ${u.name}, но это не официальный сайт (${u.domains[0]})`,60,"trust");else{let l=a.split(".")[0]??"";e:for(let m of R)for(let y of m.domains){let p=y.split(".")[0]??"";if(p.length<5||l===p)continue;let f=p.length>=8?2:1,k=He(l,p);if(Ge(l)===p||k>0&&k<=f){n(`Адрес очень похож на ${y}, но это другой сайт`,55,"trust");break e}}}}if(i==="t.me"||i==="telegram.me"){let u=(r.pathname.split("/")[1]??"").toLowerCase(),l=R.find(m=>m.token!=="telegram"&&u.includes(m.token));l?n(`Telegram-аккаунт «${u}» выдает себя за ${l.name}`,45,"trust"):/kredit|credit|vyplat|bonus|kompens|invest|zarabot|prize/.test(u)&&n(`Telegram-аккаунт «${u}» с «денежным» названием`,15)}(le.has(a)||le.has(i))&&n("Короткая ссылка скрывает настоящий адрес",20),Oe.has(h)&&n(`Доменная зона .${h} часто используется мошенниками`,15),Ue.some(u=>i===u||i.endsWith(`.${u}`))&&n("Сайт на бесплатном конструкторе/хостинге",15),r.protocol==="http:"&&/^https?:\/\//i.test(e)&&!w&&n("Сайт без шифрования (http)",5),(i.match(/-/g)??[]).length>=3&&n("Подозрительно длинный адрес с дефисами",10),i.split(".").length-a.split(".").length>=3&&n("Много вложенных поддоменов",10),Be.test(i+r.pathname+r.search)&&!w&&n("В ссылке «денежные» слова: бонус, выплата, кредит, вход",10);let x=b(t.reduce((u,l)=>u+l.weight,0));return{url:e,host:i,score:x,signals:t}}async function ue(e,t){let n=new Set;if(!t||e.length===0)return n;let r={client:{clientId:"kalkan-bot",clientVersion:"0.1.0"},threatInfo:{threatTypes:["MALWARE","SOCIAL_ENGINEERING","UNWANTED_SOFTWARE","POTENTIALLY_HARMFUL_APPLICATION"],platformTypes:["ANY_PLATFORM"],threatEntryTypes:["URL"],threatEntries:e.map(g=>({url:g}))}},i=await fetch(`https://safebrowsing.googleapis.com/v4/threatMatches:find?key=${encodeURIComponent(t)}`,{method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify(r),signal:AbortSignal.timeout(5e3)});if(!i.ok)throw new Error(`Safe Browsing HTTP ${i.status}`);let a=await i.json();for(let g of a.matches??[])g.threat?.url&&n.add(g.threat.url);return n}var qe={high:85,medium:55,low:15},me={danger:["Не переходите по ссылкам, не переводите деньги и не называйте коды.","Если уже сообщили данные карты или код — срочно позвоните в банк и заблокируйте карту."],suspicious:["Не торопитесь: мошенники всегда давят срочностью.","Проверьте информацию, позвонив в организацию по официальному номеру (с сайта или с обратной стороны карты)."],no_signs:["Явных признаков мошенничества не найдено, но это не гарантия безопасности.","Если вас просят перевести деньги или назвать код — остановитесь и перепроверьте."]};function $(e){return e>=3?70:e===2?50:e===1?30:0}var z=class{constructor(t={}){K(this,"opts",t)}async check(t){let n=this.opts.log??(()=>{}),r=[t.forwardedFrom?`Переслано от: ${t.forwardedFrom}`:"",t.text??"",t.file?.name??""].filter(Boolean).join(`
+`),i=ce(r),a=i.schemes[0],g=ge(r).slice(0,10).map(pe);for(let o of g){let c=this.opts.reports?.reportCount("domain",F(o.host))??0;c>0&&(o.signals.push({text:`На этот сайт уже жаловались пользователи (${c})`,weight:$(c),source:"reports"}),o.score=b(o.score+$(c)))}if(this.opts.safeBrowsingKey&&g.length>0)try{let o=await ue(g.map(c=>c.url),this.opts.safeBrowsingKey);for(let c of g)o.has(c.url)&&(c.signals.push({text:"Google Safe Browsing: сайт в базе опасных (фишинг/вирусы)",weight:90,source:"safe_browsing"}),c.score=b(c.score+90))}catch(o){n("safe browsing failed",o)}let h=g.some(o=>o.score>=35)?[{text:"Ведут на подозрительный сайт",weight:0,source:"url",stage:"action"}]:[],w=[...oe(t.text??""),...t.phone?[t.phone]:[]],x=[...new Map(w.map(o=>re(o)).map(o=>[o.normalized,o])).values()].slice(0,5);for(let o of x){let c=this.opts.reports?.reportCount("phone",o.normalized)??0;c>0&&(o.signals.push({text:`На этот номер уже жаловались пользователи (${c})`,weight:$(c),source:"reports"}),o.score=b(o.score+$(c)))}let u=[],l=0;if(t.file){let o=se(t.file);if(u.push(...o.signals),l=o.score,t.file.sha256&&this.opts.virusTotalKey)try{let c=await ie(t.file.sha256,this.opts.virusTotalKey);c?.known&&c.malicious+c.suspicious>0&&(u.push({text:`VirusTotal: ${c.malicious+c.suspicious} из ${c.total} антивирусов считают файл вредоносным`,weight:90,source:"virustotal"}),l=b(l+90))}catch(c){n("virustotal failed",c)}}let m=[a?.score??0,...g.map(o=>o.score),...x.map(o=>o.score),l].sort((o,c)=>c-o),y=i.signals.reduce((o,c)=>o+c.weight,0),p=b((m[0]??0)+.25*(m[1]??0)+y),f=a&&["fake_nbkr_credit","bank_security_call","police_impersonation","state_payout"].includes(a.id),k=[];f&&x.some(o=>!o.normalized.startsWith("996"))&&(k.push({text:"«Официальная» организация пишет или звонит с иностранного номера",weight:15,source:"phone",stage:"trust"}),p=b(p+15));let d=[...i.schemes.slice(0,3).flatMap((o,c)=>o.matched.map(E=>({text:E.label,weight:c===0?30:20,source:"rules",stage:E.stage,tag:E.tag}))),...i.signals,...k,...h,...g.flatMap(o=>o.signals),...x.flatMap(o=>o.signals),...u];if(i.awareness&&!g.some(o=>o.score>=35)&&!x.some(o=>o.score>=35)&&!t.file){p=0;for(let o of d)o.source==="rules"&&(o.stage=void 0,o.weight=0);d.length=0,d.push({text:"Похоже на предупреждение о мошенниках, а не на само мошенничество: в тексте нет просьб к вам",weight:0,source:"rules"})}let C=new Set(d.filter(o=>o.stage&&(o.weight>=10||o.source==="url")).map(o=>o.stage)),D=C.has("action");C.size>=4?p=Math.max(p,75):C.size===3&&D?p=Math.max(p,60):C.size===2&&D&&(p=Math.max(p,40));let T=G(t.context,{score:p,schemeId:a?.id??"none",hasAction:C.has("action")});d.push(...T.signals),p=b(p+T.scoreDelta);let S=a?.id??"none",O,P=[],U=[],V=[],B=!1,j,he=!!(t.text?.trim()||t.image||t.file||t.phone||t.context?.note);if(this.opts.ai&&he)try{let o=d.map(L=>`- [${L.source}] ${L.text}`).join(`
+`),c=await this.opts.ai.assess(t,o);B=!0,p=Math.max(p,qe[c.risk]),c.schemeId!=="none"&&(!a||a.score<60)&&(S=c.schemeId),O=c.explanation,P=c.advice,U=c.missing??[],V=c.verify??[];let E=new Set(d.map(L=>L.text.toLowerCase()));for(let L of c.redFlags)E.has(L.toLowerCase())||d.push({text:L,weight:20,source:"ai"})}catch(o){j=o instanceof Error?o.message:String(o),n("ai failed",o)}let v=te(p);(S==="none"||S==="other")&&v!=="no_signs"&&g.some(o=>o.score>=60)&&(S="phishing_site"),(S==="none"||S==="other")&&v!=="no_signs"&&d.some(o=>o.tag==="personal_data")&&(S="data_harvest"),S==="none"&&v!=="no_signs"&&(S="other"),v==="no_signs"&&(S="none");let H=A.get(S)?.advice??[],we=H.length?me[v].slice(0,1):me[v],_=ee({level:v,schemeId:S,signals:de(d)});v!=="no_signs"&&(_.missing=M([..._.missing,...U]).slice(0,4)),_.verify=M([...T.verify,..._.verify,...V]).slice(0,4);let ke=o=>!!_.reality&&fe(o,_.reality)>=.6,ye=o=>_.verify.some(c=>fe(o,c)>=.5),be=M(P.length?P:[...H.filter(o=>!ke(o)),...we]).filter(o=>!ye(o)).slice(0,4),xe=de(d).sort((o,c)=>c.weight-o.weight);return{level:v,score:p,schemeId:S,signals:xe,explanation:O,reasoning:_,advice:be,urls:g,phones:x,contextNotes:T.notes,urgent:Y(t.context,v),aiUsed:B,aiError:j}}};function fe(e,t){let n=a=>a.toLowerCase().match(/[\p{L}]{4,}/gu)??[],r=n(e),i=new Set(n(t));return r.length?r.filter(a=>i.has(a)).length/r.length:0}function M(e){return[...new Set(e.map(t=>t.trim()).filter(Boolean))]}function de(e){let t=new Set;return e.filter(n=>{let r=n.text.toLowerCase();return t.has(r)?!1:(t.add(r),!0)})}var Xe=new z;window.Kalkan={check:e=>Xe.check(e),schemeName:Q,formatPhone:ae,mergeContext:X,parseContextNote:q,DONE_LABEL:I};})();
+</script>
+<script>
+const EXAMPLES = [
+  { label: "Международный форум", text: "Здравствуйте! Ваш контакт нам передали коллеги. Приглашаем вас принять участие в Международном молодежном форуме лидеров в Стамбуле. Участие бесплатное, организаторы оплачивают проживание и перелет. Для регистрации пришлите, пожалуйста, копию паспорта. Просим ответить сегодня, количество мест ограничено." },
+  { label: "Кредит от Нацбанка", from: "канал «НБКР Кредит»", text: "Национальный банк КР уведомляет: вам одобрен кредит 150 000 сом. Для получения оплатите страховой взнос 3 500 сом. Сертификат с печатью прилагается." },
+  { label: "«Служба безопасности»", text: "Здравствуйте, служба безопасности банка. По вашей карте подозрительная операция. Чтобы сохранить деньги, переведите их на безопасный счет. Номер для связи +7 912 345 67 89" },
+  { label: "«Мама, я попал»", text: "Мама, это я, попал в ДТП, это мой новый номер, не звони, срочно нужны деньги" },
+  { label: "Приглашение на той", text: "Ассалому алейкум! Приглашение на той, откройте файл: Chakyruu_toy.apk" },
+  { label: "Компенсация по ссылке", text: "Вам начислена компенсация 12 000 сом от Соцфонда. Успейте оформить по ссылке: socfond-vyplata.online/kg" },
+  { label: "Фейковый сайт банка", text: "Ваша карта заблокирована. Войдите для разблокировки: https://mbank-secure.top/login" },
+  { label: "Знакомство в соцсети", text: "Дорогая моя, я военный врач, служу в Сирии. Я отправил тебе подарок, но посылка застряла на таможне. Переведи 15 000 сом на таможенный сбор, и я скоро приеду к тебе" },
+  { label: "Штраф «Безопасный город»", text: "Безопасный город: у вас неоплаченный штраф 3 000 сом. Оплатите сегодня по ссылке, иначе арест счета и запрет на выезд: bgorod-shtraf.top/pay" },
+  { label: "Паспорт в отделении", text: "Для открытия счета возьмите с собой паспорт и приходите в любое отделение банка." },
+  { label: "Предупреждение банка", text: "Уважаемые клиенты! Мошенники звонят от имени банка и просят код из СМС. Никогда не сообщайте коды и пароли." },
+  { label: "Обычное сообщение", text: "Привет! Во сколько встречаемся завтра? Я возьму торт." },
+];
+const TITLES = { danger: "Очень похоже на мошенничество", suspicious: "Есть признаки мошенничества — будьте осторожны", no_signs: "Явных признаков мошенничества не найдено" };
+const $ = (s) => document.querySelector(s);
+const esc = (s) => String(s).replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" })[c]);
+const log = $("#log");
+
+function bubble(cls, html) {
+  const d = document.createElement("div");
+  d.className = "msg " + cls;
+  d.innerHTML = html;
+  log.appendChild(d);
+  log.scrollTop = log.scrollHeight;
+  return d;
+}
+
+const STAGES = [
+  ["trust", "Доверие", "выдают себя за того, кому вы верите, чтобы вы не перепроверяли"],
+  ["bait", "Страх или выгода", "пугают или обещают выгоду: сильные эмоции мешают думать"],
+  ["urgency", "Давление", "торопят или требуют секретности, чтобы не было времени проверить"],
+  ["action", "Опасная просьба", "то, ради чего все затеяно: деньги, код, документы, ссылка или файл"],
+];
+function renderChain(r) {
+  return `<ol class="chain" aria-label="Шаги манипуляции">${STAGES.map(([id, title, hint], i) => {
+    const step = r.chain.find((c) => c.stage === id);
+    return `<li class="step${step ? " on" : ""}"><span class="st-n">${i + 1}</span><div><b>${title}</b><span class="st-hint">${hint}</span>${
+      step ? `<ul>${step.items.map((x) => `<li>${esc(x)}</li>`).join("")}</ul>` : `<span class="st-none">не найдено</span>`}</div></li>`;
+  }).join("")}</ol>`;
+}
+
+function renderVerdict(v) {
+  const name = v.schemeId !== "none" && v.level !== "no_signs" ? (Kalkan.schemeName(v.schemeId) || "Другая мошенническая схема") : null;
+  let h = `<div class="verdict-title"><span class="dot"></span>${TITLES[v.level]}</div>`;
+  if (name) h += `<div style="margin-top:4px">Похоже на схему: <b>${esc(name)}</b></div>`;
+  h += `<div class="meter"><i style="width:${Math.max(v.score, 3)}%"></i></div><div class="score">Уровень риска: ${v.score}/100 · оценка по признакам, а не вероятность</div>`;
+  if (v.contextNotes.length) h += `<div class="ctxnote">Учтено: ${esc(v.contextNotes.join(" "))}</div>`;
+  if (v.urgent.length) h += `<div class="urgent"><h4>Сделайте сейчас</h4>${v.urgent.map((u) => `<b>${esc(u.title)}:</b><ul>${u.steps.map((x) => `<li>${esc(x)}</li>`).join("")}</ul>`).join("")}</div>`;
+  const r = v.reasoning;
+  h += `<h4>Почему я так думаю</h4><p class="sum">${esc(r.summary)}</p>${renderChain(r)}<p class="concl">${esc(r.conclusion)}</p>`;
+  if (r.reality) h += `<div class="reality"><b>На самом деле.</b> ${esc(r.reality)}</div>`;
+  if (r.extra.length) h += `<h4>Дополнительно</h4><ul>${r.extra.map((e) => `<li>${esc(e)}</li>`).join("")}</ul>`;
+  if (r.intent.length) h += `<h4>Что может быть целью</h4><ul>${r.intent.map((i) => `<li><b>${esc(i.goal.charAt(0).toUpperCase() + i.goal.slice(1))}.</b> ${esc(i.harm)}</li>`).join("")}</ul>`;
+  if (r.missing.length) h += `<h4>Чего не хватает в сообщении</h4><ul>${r.missing.map((m) => `<li>${esc(m)}</li>`).join("")}</ul>`;
+  if (r.verify.length) h += `<h4>Что проверить самостоятельно</h4><ul>${r.verify.map((m) => `<li>${esc(m)}</li>`).join("")}</ul>`;
+  const urls = v.urls.filter((u) => u.score >= 35), phones = v.phones.filter((p) => p.score >= 35);
+  if (urls.length) h += `<h4>Не открывайте</h4><div>${urls.map((u) => `<code>${esc(u.host)}</code>`).join(" ")}</div>`;
+  if (phones.length) h += `<h4>Не перезванивайте</h4><div>${phones.map((p) => `<code>${esc(Kalkan.formatPhone(p.normalized))}</code>`).join(" ")}</div>`;
+  if (v.advice.length) h += `<h4>Что делать</h4><ol>${v.advice.map((a) => `<li>${esc(a)}</li>`).join("")}</ol>`;
+  if (v.level === "no_signs") h += `<div class="note">Бот не дает гарантий. Если сомневаетесь — позвоните в организацию по официальному номеру.</div>`;
+  h += `<div class="btns"><span>👍 Верно</span><span>👎 Ошибка</span>${urls.length || phones.length ? "<span>🚩 Пожаловаться</span>" : ""}</div>`;
+  return h;
+}
+
+function renderNotif(v) {
+  const n = $("#notif");
+  if (v && v.urgent.length) {
+    const NOUN = { money: "перевела деньги", code: "назвала код", documents: "отправила документы", link: "перешла по ссылке", app: "установила приложение" };
+    n.innerHTML = `<div class="from"><b>Калкан</b><span>сейчас</span></div>🚨 <b>Мама</b> сообщила, что уже ${v.urgent.map((u) => NOUN[u.action]).join(", ")}.<br><br>Позвоните прямо сейчас и помогите: заблокировать карту, связаться с банком, при необходимости — подать заявление в милицию (102).`;
+  } else if (v && v.level !== "no_signs") {
+    const name = Kalkan.schemeName(v.schemeId);
+    n.innerHTML = `<div class="from"><b>Калкан</b><span>сейчас</span></div>⚠️ <b>Мама</b> только что проверила подозрительное сообщение.<br>${TITLES[v.level]}${name ? `<br>Схема: <b>${esc(name)}</b>` : ""}<br><br>Позвоните и убедитесь, что никто не перевел деньги и не назвал коды из СМС.`;
+  } else if (v) {
+    n.innerHTML = `<div class="from"><b>Калкан</b><span>—</span></div>Уведомлений нет: последнее сообщение без явных признаков мошенничества.`;
+  } else {
+    n.innerHTML = `<div class="from"><b>Калкан</b><span>—</span></div>Пока тихо. Проверьте опасное сообщение в чате, и здесь появится уведомление для родственника.`;
+  }
+}
+
+const REDUCED = matchMedia("(prefers-reduced-motion: reduce)").matches;
+const sleep = (ms) => new Promise((r) => setTimeout(r, REDUCED ? 120 : ms));
+let busy = false;
+
+/** The steps the engine actually ran, with what each one found. */
+function stepsFor(v) {
+  const steps = [];
+  if (v.contextNotes.length) steps.push({ text: "Учитываю ваш контекст", res: v.contextNotes.join(" "), hit: v.urgent.length > 0 });
+  const schemeName = v.schemeId !== "none" && v.level !== "no_signs" ? Kalkan.schemeName(v.schemeId) : null;
+  steps.push({ text: "Сверяю текст с базой из 20 схем мошенничества",
+    res: schemeName ? `Совпадение: «${schemeName}»` : "Совпадений со схемами нет", hit: Boolean(schemeName) });
+  if (v.urls.length) {
+    const bad = v.urls.filter((u) => u.score >= 35);
+    steps.push({ text: `Проверяю ${v.urls.length === 1 ? "ссылку" : `ссылки (${v.urls.length})`}: домен, похожесть на сайты банков, доменную зону`,
+      res: bad.length ? `Подозрительно: ${bad.map((u) => u.host).join(", ")}` : "Явных проблем со ссылками нет", hit: bad.length > 0 });
+  }
+  if (v.phones.length) {
+    const p = v.phones[0];
+    const foreign = !p.normalized.startsWith("996");
+    steps.push({ text: `Проверяю номер ${Kalkan.formatPhone(p.normalized)}: страна и жалобы пользователей`,
+      res: foreign ? "Иностранный номер — банки КР так не звонят" : "Местный номер, жалоб нет", hit: foreign });
+  }
+  const data = v.signals.filter((s) => s.tag === "personal_data" || s.tag === "legit_channel");
+  steps.push({ text: "Ищу запросы паспорта, документов и личных данных",
+    res: data.length ? (data.some((s) => s.tag === "personal_data") ? "Просят документы или личные данные" : "Документы просят через официальный канал — это нормально") : "Не найдено",
+    hit: data.some((s) => s.tag === "personal_data") });
+  const who = v.signals.filter((s) => s.tag === "unverified_org" || s.tag === "referral");
+  steps.push({ text: "Проверяю, можно ли установить отправителя",
+    res: who.length ? who.map((s) => s.text).join("; ") : "Отправитель не прячется", hit: who.length > 0 });
+  const found = v.reasoning.chain.map((c) => c.title.toLowerCase());
+  steps.push({ text: "Разбираю логику: какие из 4 шагов манипуляции есть в сообщении",
+    res: found.length ? `Найдено ${found.length} из 4: ${found.join(", ")}` : "Ни одного шага манипуляции", hit: found.length >= 2 });
+  steps.push({ text: "Взвешиваю признаки и подбираю советы", res: `Итоговый риск: ${v.score}/100`, hit: v.level !== "no_signs" });
+  return steps;
+}
+
+const stepHtml = (s, state) =>
+  `<li class="${state}"><span class="ic"></span><span>${esc(s.text)}${state === "done" ? `<span class="res${s.hit ? " hit" : ""}">${esc(s.res)}</span>` : ""}</span></li>`;
+
+function readContext() {
+  const c = {};
+  const ch = $("#ctx-channel").value; if (ch) c.channel = ch;
+  const sender = document.querySelector('input[name="sender"]:checked').value; if (sender) c.sender = sender;
+  if ($("#ctx-expected").checked) c.expected = true;
+  const done = [...document.querySelectorAll('input[name="done"]:checked')].map((i) => i.value); if (done.length) c.done = done;
+  const note = $("#ctx-note").value.trim();
+  const merged = note ? Kalkan.mergeContext(c, Kalkan.parseContextNote(note)) : c;
+  return Object.keys(merged).some((k) => merged[k] !== undefined) ? merged : undefined;
+}
+
+function describeCtx(c) {
+  const parts = [];
+  if (c.sender) parts.push(c.sender === "known" ? "отправитель знаком" : "отправитель незнаком");
+  if (c.expected) parts.push("ждал(а) это сообщение");
+  if (c.done) parts.push("уже " + c.done.map((d) => Kalkan.DONE_LABEL[d].replace(/^(перевели|назвали|отправили|перешли|установили)/, (w) => w)).join(", "));
+  if (c.note) parts.push("«" + c.note + "»");
+  return parts.join(" · ");
+}
+
+let last = null;
+
+async function check(text, from, opts = {}) {
+  if (!text.trim() || busy) return;
+  busy = true;
+  $(".send").disabled = true;
+  $("#recheck").disabled = true;
+  const context = readContext();
+  const ctxLine = context ? `<span class="ctxline">Контекст: ${esc(describeCtx(context))}</span>` : "";
+  if (opts.recheck) bubble("me", `Пересчитай с учетом контекста.${ctxLine}`);
+  else bubble("me", (from ? `<span class="fwd">Переслано от: ${esc(from)}</span>` : "") + esc(text) + ctxLine);
+  last = { text, from };
+  const v = await Kalkan.check({ text, forwardedFrom: from, context });
+  const steps = stepsFor(v);
+  const t = bubble("bot", `<div class="think-title">Думаю…</div><ul class="think"></ul>`);
+  const list = t.querySelector(".think");
+  for (let i = 0; i < steps.length; i++) {
+    list.innerHTML = steps.map((s, j) => stepHtml(s, j < i ? "done" : j === i ? "run" : "")).join("");
+    log.scrollTop = log.scrollHeight;
+    await sleep(i === 0 ? 1100 : 800);
+  }
+  list.innerHTML = steps.map((s) => stepHtml(s, "done")).join("");
+  await sleep(500);
+  t.className = "msg bot lv-" + v.level;
+  t.innerHTML = renderVerdict(v) +
+    `<details class="trace"><summary>Как я проверял (${steps.length} ${steps.length < 5 ? "шага" : "шагов"})</summary><ul class="think">${steps.map((s) => stepHtml(s, "done")).join("")}</ul></details>`;
+  log.scrollTop = t.offsetTop - 16;
+  renderNotif(v);
+  busy = false;
+  $(".send").disabled = false;
+  $("#recheck").disabled = false;
+}
+
+$("#recheck").onclick = () => last && check(last.text, last.from, { recheck: true });
+$("#ctx-clear").onclick = () => {
+  $("#ctx-channel").value = ""; $("#ctx-sender-none").checked = true; $("#ctx-expected").checked = false;
+  document.querySelectorAll('input[name="done"]').forEach((i) => (i.checked = false)); $("#ctx-note").value = "";
+};
+
+for (const ex of EXAMPLES) {
+  const b = document.createElement("button");
+  b.type = "button";
+  b.textContent = ex.label;
+  b.onclick = () => check(ex.text, ex.from);
+  $("#chips").appendChild(b);
+}
+$("#form").addEventListener("submit", (e) => { e.preventDefault(); const v = $("#text").value; $("#text").value = ""; check(v); });
+$("#text").addEventListener("keydown", (e) => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); $("#form").requestSubmit(); } });
+
+bubble("bot", "Здравствуйте! Перешлите мне подозрительное сообщение, ссылку или номер — я проверю. В поле ниже уже есть пример: нажмите «Проверить». Или выберите другой пример под полем.");
+renderNotif();
+$("#text").value = EXAMPLES[0].text;
+</script>
+
+</body>
+</html>
