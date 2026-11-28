@@ -4,6 +4,8 @@
 
 Это MVP: Telegram-бот, B2B API для банков и демо-страница для жюри. Всё запускается одной командой.
 
+Бот в Telegram: [@kalkan_check_bot](https://t.me/kalkan_check_bot)
+
 ## Что умеет
 
 | Функция | Как работает |
